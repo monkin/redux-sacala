@@ -1,12 +1,12 @@
 {
     "name": "redux-sacala",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "author": {
         "name": "Andrey Monkin",
         "email": "monkin.andrey@gmail.com"
     },
-    "main": "build/redux-block.js",
-    "types": "build/redux-block.d.ts",
+    "main": "build/redux-sacala.js",
+    "types": "build/redux-sacala.d.ts",
     "dependencies": {
         "redux": "^4.0.0"
     },
