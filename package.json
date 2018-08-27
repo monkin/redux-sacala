@@ -1,0 +1,18 @@
+{
+    "name": "@monkin/redux-block",
+    "author": {
+        "name": "Andrey Monkin",
+        "email": "monkin.andrey@gmail.com"
+    },
+    "main": "build/redux-block.js",
+    "types": "build/redux-block.d.ts",
+    "dependencies": {
+        "redux": "^4.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^3.0.1"
+    },
+    "scripts": {
+        "prepublish": "tsc"
+    }
+}
