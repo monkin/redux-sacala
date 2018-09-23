@@ -79,6 +79,10 @@ function createMiddleware<GlobalState>(prefix: string, effectsMap: EffectsMap<Gl
     };
 }
 
+function fail(): never {
+    throw new Error("Can't have ave access to 'dispatch' and 'getState' during initialization");
+}
+
 export function createReduxBlock<GlobalState>() {
     return function applyConfig<
         Name extends keyof GlobalState,
@@ -99,7 +103,7 @@ export function createReduxBlock<GlobalState>() {
             r[key] = createActionCreator(`${name}/${key}`);
             return r;
         }, {} as any);
-        const effectCreators = Object.keys(effects || {}).reduce((r, key) => {
+        const effectCreators = Object.keys(effects ? effects(fail, fail) : {}).reduce((r, key) => {
             r[key] = createEffectCreator(`${name}/key`);
             return r;
         }, {} as any);
