@@ -104,7 +104,7 @@ export function createReduxBlock<GlobalState>() {
             return r;
         }, {} as any);
         const effectCreators = Object.keys(effects ? effects(fail, fail) : {}).reduce((r, key) => {
-            r[key] = createEffectCreator(`${name}/key`);
+            r[key] = createEffectCreator(`${name}/${key}`);
             return r;
         }, {} as any);
     
