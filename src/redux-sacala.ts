@@ -6,6 +6,14 @@ type Arguments<F> = F extends (...args: infer U) => any ? U : never;
 type FirstArgument<F> = NotEmpty<F extends (arg1: infer U) => any ? U : never>;
 type SecondArgument<F> = NotEmpty<F extends (arg1: any, arg2: infer U) => any ? U : never>;
 
+function bindAll<T extends { [key: string]: Function }>(map: T): T {
+    const result = {} as any as T;
+    for (const i in map) {
+        result[i] = map[i].bind(map);
+    }
+    return result;
+}
+
 function appendPrefix<T>(prefix: string, map: { [key: string]: T }) {
     const r: { [key: string]: any } = {};
     for (const i in map) {
@@ -18,18 +26,6 @@ function appendPrefix<T>(prefix: string, map: { [key: string]: T }) {
 type ActionHandler<BlockState, Payload> = (state: BlockState, payload: Payload) => BlockState;
 type ActionMap<BlockState> = { [action: string]: ActionHandler<BlockState, any> };
 type EffectsMap<GlobalState> = (dispatch: Dispatch, getState: () => GlobalState) => { [effect: string]: (...args: any[]) => any }
-
-interface BlockConfig<
-    GlobalState,
-    Name extends keyof GlobalState,
-    Actions extends ActionMap<GlobalState[Name]>,
-    Effects extends EffectsMap<GlobalState>
-> {
-    name: Name;
-    initial: GlobalState[Name];
-    actions: Actions;
-    effects?: Effects
-}
 
 // Output
 type ActionCreator<Handler extends ActionHandler<any, any>> = SecondArgument<Handler> extends never
@@ -52,7 +48,7 @@ function createEffectCreator(type: string) {
     return (...payload: any[]) => ({ type, payload })
 }
 function createReducer<BlockState>(prefix: string, initial: BlockState, actionMap: ActionMap<BlockState>): Reducer {
-    const actions: ActionMap<BlockState> = appendPrefix(prefix + "/", actionMap);
+    const actions: ActionMap<BlockState> = appendPrefix(prefix + "/", bindAll(actionMap));
     return (state: BlockState = initial, action?: AnyAction) => {
         if (action && action.type) {
             const handler: (state: BlockState, payload?: any) => BlockState = actions[action.type];
@@ -68,10 +64,10 @@ function createReducer<BlockState>(prefix: string, initial: BlockState, actionMa
 }
 function createMiddleware<GlobalState>(prefix: string, effectsMap: EffectsMap<GlobalState>): Middleware {
     return (store: MiddlewareAPI) => {
-        const effects = appendPrefix(prefix + "/", effectsMap(store.dispatch, store.getState));
+        const effects = appendPrefix(prefix + "/", bindAll(effectsMap(store.dispatch, store.getState)));
         return (next: Dispatch) => (action: Action<string> & { payload: any[] }) => {
             if (action && effects.hasOwnProperty(action.type)) {
-                effects[action.type].apply(effectsMap, action.payload);
+                effects[action.type].apply(action.payload);
             } else {
                 next(action);
             }
