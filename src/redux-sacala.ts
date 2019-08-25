@@ -71,7 +71,7 @@ function createMiddlewareCreator<GlobalState, ExtraArgument>(prefix: string, eff
         const effects = appendPrefix(prefix + "/", bindAll(effectsMap(store.dispatch, store.getState)));
         return (next: Dispatch) => (action: Action<string> & { payload: any[] }) => {
             if (action && effects.hasOwnProperty(action.type)) {
-                effects[action.type].apply(null, action.payload, argument);
+                effects[action.type](action.payload, argument);
             } else {
                 next(action);
             }
