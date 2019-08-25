@@ -6,7 +6,8 @@
         "module": "commonjs",
         "outDir": "build",
         "sourceMap": true,
-        "declaration": true
+        "declaration": true,
+        "target": "es2015"
     },
     "include": [
         "src/*.ts"

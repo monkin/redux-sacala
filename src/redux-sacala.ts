@@ -3,7 +3,6 @@ import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI 
 type NotEmpty<X> = {} extends X ? never : X;
 
 type Arguments<F> = F extends (...args: infer U) => any ? U : never;
-type FirstArgument<F> = NotEmpty<F extends (arg1: infer U) => any ? U : never>;
 type SecondArgument<F> = NotEmpty<F extends (arg1: any, arg2: infer U) => any ? U : never>;
 
 function bindAll<T extends { [key: string]: Function }>(map: T): T {
@@ -25,7 +24,7 @@ function appendPrefix<T>(prefix: string, map: { [key: string]: T }) {
 // Input
 type ActionHandler<BlockState, Payload> = (state: BlockState, payload: Payload) => BlockState;
 type ActionMap<BlockState> = { [action: string]: ActionHandler<BlockState, any> };
-type EffectsMap<GlobalState> = (dispatch: Dispatch, getState: () => GlobalState) => { [effect: string]: (...args: any[]) => any }
+type EffectsMap<GlobalState, ExtraArgument> = (dispatch: Dispatch, getState: () => GlobalState) => { [effect: string]: (payload: any, extraArgument: ExtraArgument) => any }
 
 // Output
 type ActionCreator<Handler extends ActionHandler<any, any>> = SecondArgument<Handler> extends never
@@ -34,7 +33,7 @@ type ActionCreator<Handler extends ActionHandler<any, any>> = SecondArgument<Han
 type ActionCreatorMap<Actions extends ActionMap<any>> = {
     [name in keyof Actions]: ActionCreator<Actions[name]>;
 };
-type EffectsCreatorMap<GlobalState, Map extends EffectsMap<GlobalState>> = {
+type EffectsCreatorMap<GlobalState, ExtraArgument, Map extends EffectsMap<GlobalState, ExtraArgument>> = {
     [key in keyof ReturnType<Map>]: (...args: Arguments<ReturnType<Map>[key]>) => Action & {
         payload: Arguments<ReturnType<Map>[key]>;
     };
@@ -45,8 +44,9 @@ function createActionCreator(type: string) {
     return (payload?: any) => payload === undefined ? { type } : { type, payload };
 }
 function createEffectCreator(type: string) {
-    return (...payload: any[]) => ({ type, payload })
+    return (payload: any) => ({ type, payload })
 }
+
 function createReducer<BlockState>(prefix: string, initial: BlockState, actionMap: ActionMap<BlockState>): Reducer {
     const actions: ActionMap<BlockState> = appendPrefix(prefix + "/", bindAll(actionMap));
     return (state: BlockState = initial, action?: AnyAction) => {
@@ -62,28 +62,31 @@ function createReducer<BlockState>(prefix: string, initial: BlockState, actionMa
         }
     }
 }
-function createMiddleware<GlobalState>(prefix: string, effectsMap: EffectsMap<GlobalState>): Middleware {
-    return (store: MiddlewareAPI) => {
+
+type MiddlewareCreator<T> = T extends undefined ? () => Middleware : (argument: T) => Middleware;
+
+function createMiddlewareCreator<GlobalState, ExtraArgument>(prefix: string, effectsMap: EffectsMap<GlobalState, ExtraArgument>): MiddlewareCreator<ExtraArgument> {
+    return ((argument: ExtraArgument) => (store: MiddlewareAPI) => {
         const effects = appendPrefix(prefix + "/", bindAll(effectsMap(store.dispatch, store.getState)));
         return (next: Dispatch) => (action: Action<string> & { payload: any[] }) => {
             if (action && effects.hasOwnProperty(action.type)) {
-                effects[action.type].apply(null, action.payload);
+                effects[action.type].apply(null, action.payload, argument);
             } else {
                 next(action);
             }
         };
-    };
+    }) as MiddlewareCreator<ExtraArgument>;
 }
 
 function fail(): never {
     throw new Error("Can't have ave access to 'dispatch' and 'getState' during initialization");
 }
 
-export function createReduxBlock<GlobalState>() {
+export function createReduxBlock<GlobalState, ExtraArgument = undefined>() {
     return function applyConfig<
         Name extends keyof GlobalState,
         Actions extends ActionMap<GlobalState[Name]>,
-        Effects extends EffectsMap<GlobalState>
+        Effects extends EffectsMap<GlobalState, ExtraArgument>
     >({ name, initial, actions, effects }: {
         name: Name;
         initial: GlobalState[Name];
@@ -92,8 +95,8 @@ export function createReduxBlock<GlobalState>() {
     }): {
         name: Name;
         reducer: Reducer<GlobalState[Name]>;
-        middleware: Middleware;
-        actions: ActionCreatorMap<Actions> & EffectsCreatorMap<GlobalState, Effects>;
+        createMiddleware: MiddlewareCreator<ExtraArgument>;
+        actions: ActionCreatorMap<Actions> & EffectsCreatorMap<GlobalState, ExtraArgument, Effects>;
     } {
         const actionCreators = Object.keys(actions).reduce((r, key) => {
             r[key] = createActionCreator(`${name}/${key}`);
@@ -107,7 +110,9 @@ export function createReduxBlock<GlobalState>() {
         return {
             name,
             reducer: createReducer(name as string, initial, actions),
-            middleware: effects ? createMiddleware(name as string, effects) : ((_: MiddlewareAPI) => (next: Dispatch) => next),
+            createMiddleware: effects
+                ? createMiddlewareCreator<GlobalState, ExtraArgument>(name as string, effects)
+                : (() => ((_: MiddlewareAPI) => (next: Dispatch) => next)) as MiddlewareCreator<ExtraArgument>,
             actions: {
                 ...actionCreators,
                 ...effectCreators
