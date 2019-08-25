@@ -35,7 +35,7 @@ type ActionCreatorMap<Actions extends ActionMap<any>> = {
     [name in keyof Actions]: ActionCreator<Actions[name]>;
 };
 type EffectsCreatorMap<GlobalState, ExtraArgument, Map extends EffectsMap<GlobalState, ExtraArgument>> = {
-    [key in keyof ReturnType<Map>]: (payload: FirstArgument<ReturnType<Map>[key]>) => Action & {
+    [key in keyof ReturnType<Map>]: (FirstArgument<ReturnType<Map>[key]> extends never ? () => Action : (payload: FirstArgument<ReturnType<Map>[key]>) => Action) & {
         payload: Arguments<ReturnType<Map>[key]>;
     };
 };
