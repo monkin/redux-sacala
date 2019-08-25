@@ -3,6 +3,7 @@ import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI 
 type NotEmpty<X> = {} extends X ? never : X;
 
 type Arguments<F> = F extends (...args: infer U) => any ? U : never;
+type FirstArgument<F> = NotEmpty<F extends (arg1: infer U) => any ? U : never>;
 type SecondArgument<F> = NotEmpty<F extends (arg1: any, arg2: infer U) => any ? U : never>;
 
 function bindAll<T extends { [key: string]: Function }>(map: T): T {
@@ -34,7 +35,7 @@ type ActionCreatorMap<Actions extends ActionMap<any>> = {
     [name in keyof Actions]: ActionCreator<Actions[name]>;
 };
 type EffectsCreatorMap<GlobalState, ExtraArgument, Map extends EffectsMap<GlobalState, ExtraArgument>> = {
-    [key in keyof ReturnType<Map>]: (...args: Arguments<ReturnType<Map>[key]>) => Action & {
+    [key in keyof ReturnType<Map>]: (payload: FirstArgument<ReturnType<Map>[key]>) => Action & {
         payload: Arguments<ReturnType<Map>[key]>;
     };
 };
