@@ -1,9 +1,7 @@
 import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI } from "redux";
 
-type NotEmpty<X> = undefined extends X ? never : X;
-
-type FirstArgument<F> = NotEmpty<F extends (arg1: infer U, ...args: any[]) => any ? U : undefined>;
-type SecondArgument<F> = NotEmpty<F extends (arg1: any, arg2: infer U, ...args: any[]) => any ? U : undefined>;
+type FirstArgument<F> = F extends (arg1: infer U, ...args: any[]) => any ? U : undefined;
+type SecondArgument<F> = F extends (arg1: any, arg2: infer U, ...args: any[]) => any ? U : undefined;
 
 function bindAll<T extends { [key: string]: Function }>(map: T): T {
     const result = {} as any as T;
