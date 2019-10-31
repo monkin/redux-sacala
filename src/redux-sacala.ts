@@ -2,9 +2,8 @@ import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI 
 
 type NotEmpty<X> = undefined extends X ? never : X;
 
-type Arguments<F> = F extends (...args: infer U) => any ? U : never;
-type FirstArgument<F> = NotEmpty<F extends (arg1: infer U, ...args: any[]) => any ? U : never>;
-type SecondArgument<F> = NotEmpty<F extends (arg1: any, arg2: infer U, ...args: any[]) => any ? U : never>;
+type FirstArgument<F> = NotEmpty<F extends (arg1: infer U, ...args: any[]) => any ? U : undefined>;
+type SecondArgument<F> = NotEmpty<F extends (arg1: any, arg2: infer U, ...args: any[]) => any ? U : undefined>;
 
 function bindAll<T extends { [key: string]: Function }>(map: T): T {
     const result = {} as any as T;
@@ -28,14 +27,14 @@ type ActionMap<BlockState> = { [action: string]: ActionHandler<BlockState, any> 
 type EffectsMap<GlobalState, ExtraArgument> = (dispatch: Dispatch, getState: () => GlobalState) => { [effect: string]: (payload: any, extraArgument: ExtraArgument) => any }
 
 // Output
-type ActionCreator<Handler extends ActionHandler<any, any>> = never extends SecondArgument<Handler>
+type ActionCreator<Handler extends ActionHandler<any, any>> = undefined extends SecondArgument<Handler>
     ? () => Action<string>
     : (payload: SecondArgument<Handler>) => Action<string> & { payload: SecondArgument<Handler> };
 type ActionCreatorMap<Actions extends ActionMap<any>> = {
     [name in keyof Actions]: ActionCreator<Actions[name]>;
 };
 type EffectsCreatorMap<GlobalState, ExtraArgument, Map extends EffectsMap<GlobalState, ExtraArgument>> = {
-    [key in keyof ReturnType<Map>]: (FirstArgument<ReturnType<Map>[key]> extends never
+    [key in keyof ReturnType<Map>]: (undefined extends FirstArgument<ReturnType<Map>[key]>
         ? () => Action
         : (payload: FirstArgument<ReturnType<Map>[key]>) => Action
     );
