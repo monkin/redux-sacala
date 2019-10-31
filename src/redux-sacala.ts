@@ -1,6 +1,6 @@
 import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI } from "redux";
 
-type NotEmpty<X> = {} extends X ? never : X;
+type NotEmpty<X> = undefined extends X ? never : X;
 
 type Arguments<F> = F extends (...args: infer U) => any ? U : never;
 type FirstArgument<F> = NotEmpty<F extends (arg1: infer U, ...args: any[]) => any ? U : never>;
@@ -28,7 +28,7 @@ type ActionMap<BlockState> = { [action: string]: ActionHandler<BlockState, any> 
 type EffectsMap<GlobalState, ExtraArgument> = (dispatch: Dispatch, getState: () => GlobalState) => { [effect: string]: (payload: any, extraArgument: ExtraArgument) => any }
 
 // Output
-type ActionCreator<Handler extends ActionHandler<any, any>> = SecondArgument<Handler> extends never
+type ActionCreator<Handler extends ActionHandler<any, any>> = never extends SecondArgument<Handler>
     ? () => Action<string>
     : (payload: SecondArgument<Handler>) => Action<string> & { payload: SecondArgument<Handler> };
 type ActionCreatorMap<Actions extends ActionMap<any>> = {

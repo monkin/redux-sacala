@@ -1,6 +1,6 @@
 {
     "name": "redux-sacala",
-    "version": "0.0.13",
+    "version": "0.0.14",
     "author": {
         "name": "Andrey Monkin",
         "email": "monkin.andrey@gmail.com"
@@ -11,7 +11,7 @@
         "redux": "^4.0.4"
     },
     "devDependencies": {
-        "typescript": "^3.5.3"
+        "typescript": "^3.6.4"
     },
     "scripts": {
         "prepublish": "tsc"
