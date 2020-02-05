@@ -8,10 +8,12 @@
     "main": "build/redux-sacala.js",
     "types": "build/redux-sacala.d.ts",
     "dependencies": {
-        "redux": "^4.0.4"
+        "redux": "^4.0.5"
     },
     "devDependencies": {
-        "typescript": "^3.6.4"
+        "typescript": "3.7.5",
+        "jest": "25.1.0",
+        "@types/jest": "25.1.1"
     },
     "scripts": {
         "prepublish": "tsc"
