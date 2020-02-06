@@ -1,7 +1,9 @@
 import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI } from "redux";
 
-type FirstArgument<F> = F extends (arg1: infer U, ...args: any[]) => any ? U : undefined;
-type SecondArgument<F> = F extends (arg1: any, arg2: infer U, ...args: any[]) => any ? U : undefined;
+type UnknownToUndefined<T> = unknown extends T ? undefined : T;
+
+type FirstArgument<F> = F extends (arg1: infer U, ...args: any[]) => any ? UnknownToUndefined<U> : undefined;
+type SecondArgument<F> = F extends (arg1: any, arg2: infer U, ...args: any[]) => any ? UnknownToUndefined<U> : undefined;
 
 function bindAll<T extends { [key: string]: Function }>(map: T): T {
     const result = {} as any as T;
@@ -27,10 +29,12 @@ type EffectsMap<GlobalState, ExtraArgument> = (dispatch: Dispatch, getState: () 
 // Output
 type ActionCreator<Handler extends ActionHandler<any, any>> = undefined extends SecondArgument<Handler>
     ? () => Action<string>
-    : (payload: SecondArgument<Handler>) => Action<string> & { payload: SecondArgument<Handler> };
+    : (payload: SecondArgument<Handler>) => (Action<string> & { payload: SecondArgument<Handler> });
+
 type ActionCreatorMap<Actions extends ActionMap<any>> = {
     [name in keyof Actions]: ActionCreator<Actions[name]>;
 };
+
 type EffectsCreatorMap<GlobalState, ExtraArgument, Map extends EffectsMap<GlobalState, ExtraArgument>> = {
     [key in keyof ReturnType<Map>]: (undefined extends FirstArgument<ReturnType<Map>[key]>
         ? () => Action
