@@ -82,12 +82,12 @@ function createMiddlewareCreator<GlobalState, ExtraArgument>(prefix: string, eff
 }
 
 function fail(): never {
-    throw new Error("Can't have ave access to 'dispatch' and 'getState' during initialization");
+    throw new Error("Can't have access to 'dispatch' and 'getState' during initialization");
 }
 
 export function createReduxBlock<GlobalState, ExtraArgument = undefined>() {
     return function applyConfig<
-        Name extends keyof GlobalState,
+        Name extends (keyof GlobalState) & string,
         Actions extends ActionMap<GlobalState[Name]>,
         Effects extends EffectsMap<GlobalState, ExtraArgument>
     >({ name, initial, actions, effects }: {
