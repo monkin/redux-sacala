@@ -1,5 +1,4 @@
 import {
-    Store,
     createStore,
     combineReducers,
     applyMiddleware,
@@ -31,7 +30,9 @@ const {
     },
     effects: (dispatch, getState) => {
         return {
-
+            incEffect() {
+                dispatch(local.inc());
+            }
         };
     }
 });

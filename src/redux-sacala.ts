@@ -1,4 +1,4 @@
-import { Dispatch, Action, Reducer, Middleware, AnyAction, Store, MiddlewareAPI } from "redux";
+import { Dispatch, Action, Reducer, Middleware, AnyAction, MiddlewareAPI } from "redux";
 
 type UnknownToUndefined<T> = unknown extends T ? undefined : T;
 
@@ -89,7 +89,7 @@ export function createReduxBlock<GlobalState, ExtraArgument = undefined>() {
     return function applyConfig<
         Name extends (keyof GlobalState) & string,
         Actions extends ActionMap<GlobalState[Name]>,
-        Effects extends EffectsMap<GlobalState, ExtraArgument>
+        Effects extends EffectsMap<GlobalState, ExtraArgument>,
     >({ name, initial, actions, effects }: {
         name: Name;
         initial: GlobalState[Name];
@@ -98,9 +98,8 @@ export function createReduxBlock<GlobalState, ExtraArgument = undefined>() {
     }): {
         name: Name;
         reducer: Reducer<GlobalState[Name]>;
-        createMiddleware: MiddlewareCreator<ExtraArgument>;
         actions: ActionCreatorMap<Actions> & EffectsCreatorMap<GlobalState, ExtraArgument, Effects>;
-    } {
+    } & ({} extends ReturnType<Effects> ? {} : { createMiddleware: MiddlewareCreator<ExtraArgument>; }) {
         const actionCreators = Object.keys(actions).reduce((r, key) => {
             r[key] = createActionCreator(`${name}/${key}`);
             return r;
