@@ -1,1 +1,10 @@
+node_modules
+src
+tsconfig.json
+vite.config.ts
+eslint.config.js
+.prettierrc
+.prettierignore
 .gitignore
+.idea
+package-lock.json
