@@ -11,6 +11,7 @@ export default defineConfig({
             formats: ["es", "cjs"],
         },
         outDir: "build",
+        sourcemap: true,
         rollupOptions: {
             external: ["redux"],
             output: {
