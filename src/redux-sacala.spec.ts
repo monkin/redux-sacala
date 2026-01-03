@@ -1,8 +1,4 @@
-import {
-    createStore,
-    combineReducers,
-    applyMiddleware,
-} from "redux";
+import { createStore, combineReducers, applyMiddleware } from "redux";
 import { createReduxBlock } from "./redux-sacala";
 
 interface LocalState {
@@ -26,22 +22,22 @@ const {
         },
         set(_, count: number) {
             return { count };
-        }
+        },
     },
-    effects: (dispatch, getState) => {
-        return {
-            incEffect() {
-                dispatch(local.inc());
-            }
-        };
-    }
+    effects: (dispatch) => ({
+        incEffect() {
+            dispatch(local.inc());
+        },
+    }),
 });
 
-function createMyStore() {
-    return createStore(combineReducers({
-        local: localReducer,
-    }), applyMiddleware(createLocalMiddleware(100)));
-}
+const createMyStore = () =>
+    createStore(
+        combineReducers({
+            local: localReducer,
+        }),
+        applyMiddleware(createLocalMiddleware(100)),
+    );
 
 let store = createMyStore();
 
