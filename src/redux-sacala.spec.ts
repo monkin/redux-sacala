@@ -1,4 +1,4 @@
-import { createStore, combineReducers, applyMiddleware } from "redux";
+import { applyMiddleware, combineReducers, createStore } from "redux";
 import { createReduxBlock } from "./redux-sacala";
 
 interface LocalState {
@@ -39,20 +39,16 @@ const createMyStore = () =>
         applyMiddleware(createLocalMiddleware(100)),
     );
 
-let store = createMyStore();
-
-beforeEach(() => {
-    store = createMyStore();
-});
-
 describe("Store with reducer and middleware", () => {
     it("Should be updated on action without payload", () => {
+        const store = createMyStore();
         store.dispatch(local.inc());
         store.dispatch(local.inc());
         expect(store.getState()).toEqual({ local: { count: 2 } });
     });
 
     it("Should be updated on action with payload", () => {
+        const store = createMyStore();
         store.dispatch(local.set(12));
         expect(store.getState()).toEqual({ local: { count: 12 } });
     });
