@@ -14,11 +14,6 @@ export default defineConfig({
         sourcemap: true,
         rollupOptions: {
             external: ["redux"],
-            output: {
-                globals: {
-                    redux: "Redux",
-                },
-            },
         },
     },
     plugins: [dts({ rollupTypes: true })],

@@ -1,4 +1,4 @@
-import { Dispatch, Action, Reducer, Middleware, AnyAction, MiddlewareAPI } from "redux";
+import { Action, Dispatch, Middleware, MiddlewareAPI, Reducer, UnknownAction } from "redux";
 
 type UnknownToUndefined<T> = unknown extends T ? undefined : T;
 
@@ -34,8 +34,8 @@ type EffectsMap<GlobalState, ExtraArgument> = (
 // Output
 type ActionCreator<Handler extends ActionHandler<any, any>> =
     undefined extends SecondArgument<Handler>
-        ? () => Action<string>
-        : (payload: SecondArgument<Handler>) => Action<string> & { payload: SecondArgument<Handler> };
+        ? () => Action
+        : (payload: SecondArgument<Handler>) => Action & { payload: SecondArgument<Handler> };
 
 type ActionCreatorMap<Actions extends ActionMap<any>> = {
     [name in keyof Actions]: ActionCreator<Actions[name]>;
@@ -53,7 +53,7 @@ const createEffectCreator = (type: string) => (payload: any) => ({ type, payload
 
 const createReducer = <BlockState>(prefix: string, initial: BlockState, actionMap: ActionMap<BlockState>): Reducer => {
     const actions: ActionMap<BlockState> = appendPrefix(prefix + "/", bindAll(actionMap));
-    return (state: BlockState = initial, action?: AnyAction) => {
+    return (state: BlockState = initial, action?: UnknownAction) => {
         if (action && action.type) {
             const handler: (state: BlockState, payload?: any) => BlockState = actions[action.type];
             if (handler) {
