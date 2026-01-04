@@ -59,10 +59,17 @@ export namespace ReduxBlock {
     export type TakeContext<Block extends Any> =
         Block extends ReduxBlock<any, any, any, infer Context> ? Context : never;
 
-    export function create<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
+    /**
+     * Create a block builder.
+     * It's a starting point for creating a block.
+     */
+    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
         return Builder.create(name, initial);
     }
 
+    /**
+     * Compose blocks into one structured block
+     */
     export function compose<Blocks extends Record<string, Any>>(blocks: Blocks): Composition<Blocks> {
         const reducers = Object.entries(blocks).map(([name, block]) => [name, block.reducer] as const);
 
@@ -92,6 +99,9 @@ export namespace ReduxBlock {
         } as unknown as Composition<Blocks>;
     }
 
+    /**
+     * Create middleware for effects processing
+     */
     export function middleware<Block extends Any>(block: Block, context: TakeContext<Block>): Middleware {
         const effects = block.effects(context);
         return () => (next) => (action) => {
