@@ -6,7 +6,7 @@ export interface ReduxBlock<State, ActionType extends Action, Creators, Context>
     effects: Effects<Context>;
 }
 
-const actionCreator = (scope: string) =>
+const creator = (scope: string) =>
     new Proxy(
         {},
         {
