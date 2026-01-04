@@ -11,7 +11,10 @@ const creator = (scope: string) =>
         {},
         {
             get(_target, property) {
-                return (...payload: unknown[]) => ({ type: `${scope}/${property as string}`, payload });
+                return (...payload: unknown[]) => {
+                    const type = `${scope}/${property as string}`;
+                    return payload.length ? { type, payload } : { type };
+                };
             },
         },
     ) as Record<string, (...payload: unknown[]) => UnknownAction>;
@@ -30,20 +33,15 @@ type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> 
     UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
 >;
 
-class Builder<
-    Name extends string,
-    State,
-    Creators extends Record<string, (state: State, ...payload: unknown[]) => State>,
-    Context,
-> {
+class Builder<Name extends string, State, Actions extends UnknownAction, Context> {
     private constructor(
-        private readonly name: Name,
-        private readonly initial: State,
-        private readonly creators: Creators,
+        readonly name: Name,
+        readonly initial: State,
+        private readonly handlers: Record<Actions["type"], (state: State, payload: unknown[]) => State>,
         private readonly effects: Effects<Context>[],
     ) {}
 
-    static create<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
+    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
         return new Builder(name, initial, {}, []);
     }
 }
@@ -63,8 +61,8 @@ export namespace ReduxBlock {
      * Create a block builder.
      * It's a starting point for creating a block.
      */
-    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
-        return Builder.create(name, initial);
+    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
+        return Builder.init(name, initial);
     }
 
     /**
@@ -109,10 +107,9 @@ export namespace ReduxBlock {
                 action &&
                 typeof action === "object" &&
                 "type" in action &&
-                "payload" in action &&
                 Object.prototype.hasOwnProperty.call(effects, action.type as string)
             ) {
-                effects[action.type as string](...(action.payload as unknown[]));
+                effects[action.type as string](...("payload" in action ? (action.payload as unknown[]) : []));
             }
             next(action);
         };
