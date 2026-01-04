@@ -10,10 +10,11 @@ export default tseslint.config(
         rules: {
             "prefer-arrow-callback": "error",
             "arrow-body-style": ["error", "as-needed"],
-            "func-style": ["error", "expression", { allowArrowFunctions: true }],
+            "func-style": "off",
             "@typescript-eslint/no-explicit-any": "off",
             "@typescript-eslint/no-unsafe-function-type": "off",
             "@typescript-eslint/no-empty-object-type": "off",
+            "@typescript-eslint/no-namespace": "off",
             "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
         },
     },

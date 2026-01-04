@@ -1,132 +1,110 @@
-import { Action, Dispatch, Middleware, MiddlewareAPI, Reducer, UnknownAction } from "redux";
+import { Action, Middleware, Reducer, UnknownAction } from "redux";
 
-type UnknownToUndefined<T> = unknown extends T ? undefined : T;
+export interface ReduxBlock<State, ActionType extends Action, Creators, Context> {
+    actions: Creators;
+    reducer: Reducer<State, ActionType>;
+    effects: Effects<Context>;
+}
 
-type FirstArgument<F> = F extends (arg1: infer U, ...args: any[]) => any ? UnknownToUndefined<U> : undefined;
-type SecondArgument<F> = F extends (arg1: any, arg2: infer U, ...args: any[]) => any
-    ? UnknownToUndefined<U>
-    : undefined;
+const actionCreator = (scope: string) =>
+    new Proxy(
+        {},
+        {
+            get(_target, property) {
+                return (...payload: unknown[]) => ({ type: `${scope}/${property as string}`, payload });
+            },
+        },
+    ) as Record<string, (...payload: unknown[]) => UnknownAction>;
 
-const bindAll = <T extends { [key: string]: Function }>(map: T): T => {
-    const result = {} as any as T;
-    for (const i in map) {
-        result[i] = map[i].bind(map);
+type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
+
+type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
+type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> = ReduxBlock<
+    {
+        [K in keyof Blocks]: ReduxBlock.TakeState<Blocks[K]>;
+    },
+    ReduxBlock.TakeActions<Blocks[string]>,
+    {
+        [K in keyof Blocks]: ReduxBlock.TakeCreators<Blocks[K]>;
+    },
+    UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
+>;
+
+class Builder<
+    Name extends string,
+    State,
+    Creators extends Record<string, (state: State, ...payload: unknown[]) => State>,
+    Context,
+> {
+    private constructor(
+        private readonly name: Name,
+        private readonly initial: State,
+        private readonly creators: Creators,
+        private readonly effects: Effects<Context>[],
+    ) {}
+
+    static create<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
+        return new Builder(name, initial, {}, []);
     }
-    return result;
-};
+}
 
-const appendPrefix = <T>(prefix: string, map: { [key: string]: T }) => {
-    const r: { [key: string]: any } = {};
-    for (const i in map) {
-        r[prefix + i] = map[i];
+export namespace ReduxBlock {
+    type Any = ReduxBlock<any, any, any, any>;
+
+    export type TakeState<Block extends Any> = Block extends ReduxBlock<infer State, any, any, any> ? State : never;
+    export type TakeActions<Block extends Any> =
+        Block extends ReduxBlock<any, infer Actions, any, any> ? Actions : never;
+    export type TakeCreators<Block extends Any> =
+        Block extends ReduxBlock<any, any, infer Creators, any> ? Creators : never;
+    export type TakeContext<Block extends Any> =
+        Block extends ReduxBlock<any, any, any, infer Context> ? Context : never;
+
+    export function create<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
+        return Builder.create(name, initial);
     }
-    return r;
-};
 
-// Input
-type ActionHandler<BlockState, Payload> = (state: BlockState, payload: Payload) => BlockState;
-type ActionMap<BlockState> = { [action: string]: ActionHandler<BlockState, any> };
-type EffectsMap<GlobalState, ExtraArgument> = (
-    dispatch: Dispatch,
-    getState: () => GlobalState,
-) => { [effect: string]: (payload: any, extraArgument: ExtraArgument) => any };
-
-// Output
-type ActionCreator<Handler extends ActionHandler<any, any>> =
-    undefined extends SecondArgument<Handler>
-        ? () => Action
-        : (payload: SecondArgument<Handler>) => Action & { payload: SecondArgument<Handler> };
-
-type ActionCreatorMap<Actions extends ActionMap<any>> = {
-    [name in keyof Actions]: ActionCreator<Actions[name]>;
-};
-
-type EffectsCreatorMap<GlobalState, ExtraArgument, Map extends EffectsMap<GlobalState, ExtraArgument>> = {
-    [key in keyof ReturnType<Map>]: undefined extends FirstArgument<ReturnType<Map>[key]>
-        ? () => Action
-        : (payload: FirstArgument<ReturnType<Map>[key]>) => Action;
-};
-
-// Transformation
-const createActionCreator = (type: string) => (payload?: any) => (payload === undefined ? { type } : { type, payload });
-const createEffectCreator = (type: string) => (payload: any) => ({ type, payload });
-
-const createReducer = <BlockState>(prefix: string, initial: BlockState, actionMap: ActionMap<BlockState>): Reducer => {
-    const actions: ActionMap<BlockState> = appendPrefix(prefix + "/", bindAll(actionMap));
-    return (state: BlockState = initial, action?: UnknownAction) => {
-        if (action && action.type) {
-            const handler: (state: BlockState, payload?: any) => BlockState = actions[action.type];
-            if (handler) {
-                return handler(state, action.payload);
-            } else {
-                return state;
-            }
-        } else {
-            return state;
-        }
-    };
-};
-
-type MiddlewareCreator<T> = T extends undefined ? () => Middleware : (argument: T) => Middleware;
-
-const createMiddlewareCreator = <GlobalState, ExtraArgument>(
-    prefix: string,
-    effectsMap: EffectsMap<GlobalState, ExtraArgument>,
-): MiddlewareCreator<ExtraArgument> =>
-    ((argument: ExtraArgument) => (store: MiddlewareAPI) => {
-        const effects = appendPrefix(prefix + "/", bindAll(effectsMap(store.dispatch, store.getState)));
-        return (next: Dispatch) => (action: Action<string> & { payload: any[] }) => {
-            if (action && Object.prototype.hasOwnProperty.call(effects, action.type)) {
-                effects[action.type](action.payload, argument);
-            } else {
-                next(action);
-            }
-        };
-    }) as MiddlewareCreator<ExtraArgument>;
-
-const fail = (): never => {
-    throw new Error("Can't have access to 'dispatch' and 'getState' during initialization");
-};
-
-export const createReduxBlock =
-    <GlobalState, ExtraArgument = undefined>() =>
-    <
-        Name extends keyof GlobalState & string,
-        Actions extends ActionMap<GlobalState[Name]>,
-        Effects extends EffectsMap<GlobalState, ExtraArgument>,
-    >({
-        name,
-        initial,
-        actions,
-        effects,
-    }: {
-        name: Name;
-        initial: GlobalState[Name];
-        actions: Actions;
-        effects?: Effects;
-    }): {
-        name: Name;
-        reducer: Reducer<GlobalState[Name]>;
-        actions: ActionCreatorMap<Actions> & EffectsCreatorMap<GlobalState, ExtraArgument, Effects>;
-    } & ({} extends ReturnType<Effects> ? {} : { createMiddleware: MiddlewareCreator<ExtraArgument> }) => {
-        const actionCreators = Object.keys(actions).reduce((r, key) => {
-            r[key] = createActionCreator(`${name}/${key}`);
-            return r;
-        }, {} as any);
-        const effectCreators = Object.keys(effects ? effects(fail, fail) : {}).reduce((r, key) => {
-            r[key] = createEffectCreator(`${name}/${key}`);
-            return r;
-        }, {} as any);
+    export function compose<Blocks extends Record<string, Any>>(blocks: Blocks): Composition<Blocks> {
+        const reducers = Object.entries(blocks).map(([name, block]) => [name, block.reducer] as const);
 
         return {
-            name,
-            reducer: createReducer(name as string, initial, actions),
-            createMiddleware: effects
-                ? createMiddlewareCreator<GlobalState, ExtraArgument>(name as string, effects)
-                : ((() => (_: MiddlewareAPI) => (next: Dispatch) => next) as MiddlewareCreator<ExtraArgument>),
-            actions: {
-                ...actionCreators,
-                ...effectCreators,
+            actions: Object.fromEntries(Object.entries(blocks).map(([name, block]) => [name, block.actions])),
+            reducer: (state: any, action: UnknownAction) => {
+                let result = state;
+                let changed = false;
+                reducers.forEach(([name, reducer]) => {
+                    const original = result[name];
+                    const updated = reducer(original, action);
+                    if (updated !== original) {
+                        if (!changed) {
+                            changed = true;
+                            result = { ...result };
+                        }
+                        result[name] = updated;
+                    }
+                });
+                return result;
             },
+            effects: (context: any) =>
+                Object.values(blocks).reduce(
+                    (effects, block) => Object.assign(effects, block.effects(context)),
+                    {} as Record<string, (...payload: unknown[]) => void>,
+                ),
+        } as unknown as Composition<Blocks>;
+    }
+
+    export function middleware<Block extends Any>(block: Block, context: TakeContext<Block>): Middleware {
+        const effects = block.effects(context);
+        return () => (next) => (action) => {
+            if (
+                action &&
+                typeof action === "object" &&
+                "type" in action &&
+                "payload" in action &&
+                Object.prototype.hasOwnProperty.call(effects, action.type as string)
+            ) {
+                effects[action.type as string](...(action.payload as unknown[]));
+            }
+            next(action);
         };
-    };
+    }
+}
