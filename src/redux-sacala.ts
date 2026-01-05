@@ -24,6 +24,7 @@ const creator = (scope: string) =>
     ) as Record<string, (...payload: unknown[]) => UnknownAction>;
 
 type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
+type Simplify<T> = T extends infer U ? { [K in keyof U]: U[K] } : never;
 
 type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
 type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> = ReduxBlock<
@@ -37,7 +38,7 @@ type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> 
     UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
 >;
 
-class Builder<Name extends string, State, Actions extends { name: string; payload: unknown[] }, Context> {
+class Builder<Name extends string, State, Actions extends { [name: string]: unknown[] }, Context> {
     private constructor(
         readonly name: Name,
         readonly initial: State,
@@ -45,7 +46,7 @@ class Builder<Name extends string, State, Actions extends { name: string; payloa
         private readonly effects: Effects<Context>[],
     ) {}
 
-    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
+    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
         return new Builder(name, initial, {}, []);
     }
 
@@ -54,18 +55,18 @@ class Builder<Name extends string, State, Actions extends { name: string; payloa
         handler: (state: State, ...payload: Payload) => State,
     ) {
         this.handlers[`${this.name}/${action}`] = handler as (state: State, ...payload: unknown[]) => State;
-        return this as Builder<Name, State, Actions | { name: Action; payload: Payload }, Context>;
+        return this as unknown as Builder<Name, State, Actions & Record<Action, Payload>, Context>;
     }
 
     build(): ReduxBlock<
         State,
         {
-            [K in Actions["name"]]: PayloadAction<`${Name}/${K}`, Extract<Actions, { name: K }>["payload"]>;
-        }[Actions["name"]],
+            [K in keyof Actions]: PayloadAction<`${Name}/${K extends symbol ? never : K}`, Actions[K]>;
+        }[keyof Actions],
         {
-            [K in Actions["name"]]: (
-                ...payload: Extract<Actions, { name: K }>["payload"]
-            ) => PayloadAction<`${Name}/${K}`, Extract<Actions, { name: K }>["payload"]>;
+            [K in keyof Actions]: (
+                ...payload: Actions[K]
+            ) => PayloadAction<`${Name}/${K extends symbol ? never : K}`, Actions[K]>;
         },
         Context
     > {
