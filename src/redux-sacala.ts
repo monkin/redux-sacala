@@ -30,7 +30,7 @@ type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> 
     {
         [K in keyof Blocks]: ReduxBlock.TakeState<Blocks[K]>;
     },
-    ReduxBlock.TakeActions<Blocks[string]>,
+    ReduxBlock.TakeActions<Blocks[keyof Blocks]>,
     {
         [K in keyof Blocks]: ReduxBlock.TakeCreators<Blocks[K]>;
     },
