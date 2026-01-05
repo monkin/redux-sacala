@@ -33,16 +33,24 @@ type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> 
     UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
 >;
 
-class Builder<Name extends string, State, Actions extends UnknownAction, Context> {
+class Builder<Name extends string, State, Actions extends { [type: string]: unknown[] }, Context> {
     private constructor(
         readonly name: Name,
         readonly initial: State,
-        private readonly handlers: Record<Actions["type"], (state: State, payload: unknown[]) => State>,
+        private readonly handlers: Record<string, (state: State, ...payload: unknown[]) => State>,
         private readonly effects: Effects<Context>[],
     ) {}
 
-    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
+    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
         return new Builder(name, initial, {}, []);
+    }
+
+    action<Action extends string, Payload extends unknown[] = []>(
+        action: Action,
+        handler: (state: State, ...payload: Payload) => State,
+    ) {
+        this.handlers[action] = handler as (state: State, ...payload: unknown[]) => State;
+        return this as Builder<Name, State, Actions & { [key in Action]: Payload }, Context>;
     }
 }
 
@@ -61,7 +69,7 @@ export namespace ReduxBlock {
      * Create a block builder.
      * It's a starting point for creating a block.
      */
-    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
+    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
         return Builder.init(name, initial);
     }
 
