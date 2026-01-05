@@ -4,7 +4,7 @@ import { Middleware, Reducer, UnknownAction } from "redux";
  * Composable Redux block with state description, action creators, and effects handlers.
  * Use `ReduxBlock.builder` to start building a new block.
  */
-export interface ReduxBlock<State, ActionType extends { type: string; payload?: unknown[] }, Creators, Context> {
+export interface ReduxBlock<State, Creators, Context> {
     /**
      * Action creators for this block.
      * When composed, action creators can form a folder tree structure.
@@ -13,7 +13,7 @@ export interface ReduxBlock<State, ActionType extends { type: string; payload?: 
     /**
      * Reducer that can be used directly in Redux store configuration.
      */
-    reducer: Reducer<State, ActionType>;
+    reducer: Reducer<State, UnknownAction>;
     /**
      * Effects to be called on effects actions.
      * Use `ReduxBlock.middleware` to create middleware for effects processing.
@@ -25,11 +25,19 @@ type PayloadAction<Type extends string, Payload extends unknown[]> = Payload ext
     ? { type: Type }
     : { type: Type; payload: Payload };
 
+function has<K extends string | symbol>(v: unknown, k: K): v is Record<K, unknown> {
+    return typeof v === "object" && v !== null && k in v;
+}
+
 const creator = (scope: string) =>
     new Proxy(
         {},
         {
-            get(_target, property) {
+            get(target, property) {
+                if (has(target, property)) {
+                    return target[property];
+                }
+
                 return (...payload: unknown[]) => {
                     const type = `${scope}/${property as string}`;
                     return payload.length ? { type, payload } : { type };
@@ -41,11 +49,16 @@ const creator = (scope: string) =>
 type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
 
 type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
-type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> = ReduxBlock<
+type EffectsToCreators<Name extends string, E extends Effects<any>> = {
+    [K in keyof ReturnType<E> as `${Name}/${K extends string ? K : never}`]: (
+        ...parameters: Parameters<ReturnType<E>[K]>
+    ) => PayloadAction<`${Name}/${K extends string ? K : never}`, Parameters<ReturnType<E>[K]>>;
+};
+
+type Composition<Blocks extends Record<string, ReduxBlock<any, any, any>>> = ReduxBlock<
     {
         [K in keyof Blocks]: ReduxBlock.TakeState<Blocks[K]>;
     },
-    ReduxBlock.TakeActions<Blocks[keyof Blocks]>,
     {
         [K in keyof Blocks]: ReduxBlock.TakeCreators<Blocks[K]>;
     },
@@ -74,9 +87,6 @@ class BlockBuilder<Name extends string, State, Actions extends { [name: string]:
 
     build(): ReduxBlock<
         State,
-        {
-            [K in keyof Actions]: PayloadAction<`${Name}/${K extends symbol ? never : K}`, Actions[K]>;
-        }[keyof Actions],
         {
             [K in keyof Actions]: (
                 ...payload: Actions[K]
@@ -107,17 +117,64 @@ class BlockBuilder<Name extends string, State, Actions extends { [name: string]:
     }
 }
 
-export namespace ReduxBlock {
-    type AnyBlock = ReduxBlock<any, any, any, any>;
+class CompositionBuilder<
+    Name extends string,
+    BlockMap extends Record<string, ReduxBlock<any, any, any>>,
+    Creators,
+    Context,
+> {
+    private blocks: BlockMap = {} as BlockMap;
+    private handlers: Effects<Context>[] = [];
+    private creators: Creators;
 
-    export type TakeState<Block extends AnyBlock> =
-        Block extends ReduxBlock<infer State, any, any, any> ? State : never;
-    export type TakeActions<Block extends AnyBlock> =
-        Block extends ReduxBlock<any, infer Actions, any, any> ? Actions : never;
+    private constructor(private name: Name) {
+        this.creators = creator(name) as Creators;
+    }
+
+    block<Name extends string, Block extends ReduxBlock<any, any, any>>(
+        name: Name,
+        block: Block,
+    ): CompositionBuilder<
+        Name,
+        BlockMap & Record<Name, Block>,
+        Creators & Record<Name, ReduxBlock.TakeCreators<Block>>,
+        Context & ReduxBlock.TakeContext<Block>
+    > {
+        (this.blocks as Record<string, ReduxBlock<any, any, any>>)[name] = block;
+        (this.creators as Record<string, unknown>)[name] = block.actions;
+        return this as any;
+    }
+
+    effects<E extends Effects<any>>(
+        effects: E,
+    ): CompositionBuilder<
+        Name,
+        BlockMap,
+        Creators & EffectsToCreators<Name, E>,
+        Context & (E extends Effects<infer ExtraContext> ? ExtraContext : never)
+    > {
+        (this.handlers as (Effects<Context> | E)[]).push(effects);
+        return this as any;
+    }
+
+    build(): ReduxBlock<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }, Creators, Context> {
+        return {
+            actions: this.creators,
+            effects: (context: Context) =>
+                this.handlers.reduce((effects, handlers) => Object.assign(effects, handlers(context)), {}),
+            reducer: ReduxBlock.compose(this.blocks).reducer,
+        } as any;
+    }
+}
+
+export namespace ReduxBlock {
+    type AnyBlock = ReduxBlock<any, any, any>;
+
+    export type TakeState<Block extends AnyBlock> = Block extends ReduxBlock<infer State, any, any> ? State : never;
     export type TakeCreators<Block extends AnyBlock> =
-        Block extends ReduxBlock<any, any, infer Creators, any> ? Creators : never;
+        Block extends ReduxBlock<any, infer Creators, any> ? Creators : never;
     export type TakeContext<Block extends AnyBlock> =
-        Block extends ReduxBlock<any, any, any, infer Context> ? Context : never;
+        Block extends ReduxBlock<any, any, infer Context> ? Context : never;
 
     /**
      * Create a block builder.
@@ -166,12 +223,7 @@ export namespace ReduxBlock {
     export function middleware<Block extends AnyBlock>(block: Block, context: TakeContext<Block>): Middleware {
         const effects = block.effects(context);
         return () => (next) => (action) => {
-            if (
-                action &&
-                typeof action === "object" &&
-                "type" in action &&
-                Object.prototype.hasOwnProperty.call(effects, action.type as string)
-            ) {
+            if (action && typeof action === "object" && "type" in action && has(effects, action.type as string)) {
                 effects[action.type as string](...("payload" in action ? (action.payload as unknown[]) : []));
             }
             next(action);
