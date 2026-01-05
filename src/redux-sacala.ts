@@ -24,7 +24,6 @@ const creator = (scope: string) =>
     ) as Record<string, (...payload: unknown[]) => UnknownAction>;
 
 type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
-type Simplify<T> = T extends infer U ? { [K in keyof U]: U[K] } : never;
 
 type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
 type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> = ReduxBlock<
@@ -87,7 +86,7 @@ class Builder<Name extends string, State, Actions extends { [name: string]: unkn
                 const handler = this.handlers[action.type];
                 if (!handler) return state;
                 const payload = "payload" in action ? (action.payload as unknown[]) : undefined;
-                return payload ? handler(state, ...payload) : handler(state);
+                return payload && payload.length ? handler(state, ...payload) : handler(state);
             },
         } as any;
     }
@@ -108,7 +107,7 @@ export namespace ReduxBlock {
      * Create a block builder.
      * It's a starting point for creating a block.
      */
-    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
+    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
         return Builder.init(name, initial);
     }
 
