@@ -1,14 +1,29 @@
 import { Middleware, Reducer, UnknownAction } from "redux";
 
+/**
+ * Composable Redux block with state description, action creators, and effects handlers.
+ * Use `ReduxBlock.builder` to start building a new block.
+ */
+export interface ReduxBlock<State, ActionType extends { type: string; payload?: unknown[] }, Creators, Context> {
+    /**
+     * Action creators for this block.
+     * When composed, action creators can form a folder tree structure.
+     */
+    actions: Creators;
+    /**
+     * Reducer that can be used directly in Redux store configuration.
+     */
+    reducer: Reducer<State, ActionType>;
+    /**
+     * Effects to be called on effects actions.
+     * Use `ReduxBlock.middleware` to create middleware for effects processing.
+     */
+    effects: Effects<Context>;
+}
+
 type PayloadAction<Type extends string, Payload extends unknown[]> = Payload extends never[]
     ? { type: Type }
     : { type: Type; payload: Payload };
-
-export interface ReduxBlock<State, ActionType extends { type: string; payload?: unknown[] }, Creators, Context> {
-    actions: Creators;
-    reducer: Reducer<State, ActionType>;
-    effects: Effects<Context>;
-}
 
 const creator = (scope: string) =>
     new Proxy(
@@ -93,14 +108,15 @@ class Builder<Name extends string, State, Actions extends { [name: string]: unkn
 }
 
 export namespace ReduxBlock {
-    type Any = ReduxBlock<any, any, any, any>;
+    type AnyBlock = ReduxBlock<any, any, any, any>;
 
-    export type TakeState<Block extends Any> = Block extends ReduxBlock<infer State, any, any, any> ? State : never;
-    export type TakeActions<Block extends Any> =
+    export type TakeState<Block extends AnyBlock> =
+        Block extends ReduxBlock<infer State, any, any, any> ? State : never;
+    export type TakeActions<Block extends AnyBlock> =
         Block extends ReduxBlock<any, infer Actions, any, any> ? Actions : never;
-    export type TakeCreators<Block extends Any> =
+    export type TakeCreators<Block extends AnyBlock> =
         Block extends ReduxBlock<any, any, infer Creators, any> ? Creators : never;
-    export type TakeContext<Block extends Any> =
+    export type TakeContext<Block extends AnyBlock> =
         Block extends ReduxBlock<any, any, any, infer Context> ? Context : never;
 
     /**
@@ -112,9 +128,9 @@ export namespace ReduxBlock {
     }
 
     /**
-     * Compose blocks into one structured block
+     * Compose blocks into one structured block.
      */
-    export function compose<Blocks extends Record<string, Any>>(blocks: Blocks): Composition<Blocks> {
+    export function compose<Blocks extends Record<string, AnyBlock>>(blocks: Blocks): Composition<Blocks> {
         const reducers = Object.entries(blocks).map(([name, block]) => [name, block.reducer] as const);
 
         return {
@@ -144,9 +160,10 @@ export namespace ReduxBlock {
     }
 
     /**
-     * Create middleware for effects processing
+     * Create middleware for effects processing.
+     * It expects to receive a context object that provides necessary dependencies for effect handlers.
      */
-    export function middleware<Block extends Any>(block: Block, context: TakeContext<Block>): Middleware {
+    export function middleware<Block extends AnyBlock>(block: Block, context: TakeContext<Block>): Middleware {
         const effects = block.effects(context);
         return () => (next) => (action) => {
             if (
