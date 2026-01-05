@@ -46,24 +46,12 @@ const creator = (scope: string) =>
         },
     ) as Record<string, (...payload: unknown[]) => UnknownAction>;
 
-type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
-
 type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
 type EffectsToCreators<Name extends string, E extends Effects<any>> = {
     [K in keyof ReturnType<E> as `${Name}/${K extends string ? K : never}`]: (
         ...parameters: Parameters<ReturnType<E>[K]>
     ) => PayloadAction<`${Name}/${K extends string ? K : never}`, Parameters<ReturnType<E>[K]>>;
 };
-
-type Composition<Blocks extends Record<string, ReduxBlock<any, any, any>>> = ReduxBlock<
-    {
-        [K in keyof Blocks]: ReduxBlock.TakeState<Blocks[K]>;
-    },
-    {
-        [K in keyof Blocks]: ReduxBlock.TakeCreators<Blocks[K]>;
-    },
-    UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
->;
 
 class BlockBuilder<Name extends string, State, Actions extends { [name: string]: unknown[] }, Context> {
     private constructor(
@@ -98,15 +86,20 @@ class BlockBuilder<Name extends string, State, Actions extends { [name: string]:
         const blockName = this.name;
         return {
             actions: creator(this.name),
-            effects: this.effects.map(
-                (effect) => (context: Context) =>
-                    Object.fromEntries(
-                        Object.entries(effect(context)).map(([effectName, handler]) => [
-                            `${blockName}/${effectName}`,
-                            handler,
-                        ]),
-                    ),
-            ),
+            effects: (context: Context) =>
+                this.effects.reduce(
+                    (acc, effect) =>
+                        Object.assign(
+                            acc,
+                            Object.fromEntries(
+                                Object.entries(effect(context)).map(([effectName, handler]) => [
+                                    `${blockName}/${effectName}`,
+                                    handler,
+                                ]),
+                            ),
+                        ),
+                    {} as Record<string, (...payload: unknown[]) => void>,
+                ),
             reducer: (state = initialState, action: UnknownAction) => {
                 const handler = this.handlers[action.type];
                 if (!handler) return state;
@@ -165,8 +158,14 @@ class CompositionBuilder<
         const reducers = Object.entries(this.blocks).map(([name, block]) => [name, block.reducer] as const);
         return {
             actions: this.creators,
-            effects: (context: Context) =>
-                this.handlers.reduce((effects, handlers) => Object.assign(effects, handlers(context)), {}),
+            effects: (context: Context) => {
+                const result = this.handlers.reduce(
+                    (effects, handlers) => Object.assign(effects, handlers(context)),
+                    {} as Record<string, (...payload: unknown[]) => void>,
+                );
+                Object.values(this.blocks).forEach((block) => Object.assign(result, block.effects(context)));
+                return result;
+            },
             reducer: (state: any, action: UnknownAction) => {
                 let result = state;
                 let changed = false;
@@ -209,38 +208,6 @@ export namespace ReduxBlock {
      */
     export function composition<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}> {
         return CompositionBuilder.init(name);
-    }
-
-    /**
-     * Compose blocks into one structured block.
-     */
-    export function compose<Blocks extends Record<string, AnyBlock>>(blocks: Blocks): Composition<Blocks> {
-        const reducers = Object.entries(blocks).map(([name, block]) => [name, block.reducer] as const);
-
-        return {
-            actions: Object.fromEntries(Object.entries(blocks).map(([name, block]) => [name, block.actions])),
-            reducer: (state: any, action: UnknownAction) => {
-                let result = state;
-                let changed = false;
-                reducers.forEach(([name, reducer]) => {
-                    const original = result[name];
-                    const updated = reducer(original, action);
-                    if (updated !== original) {
-                        if (!changed) {
-                            changed = true;
-                            result = { ...result };
-                        }
-                        result[name] = updated;
-                    }
-                });
-                return result;
-            },
-            effects: (context: any) =>
-                Object.values(blocks).reduce(
-                    (effects, block) => Object.assign(effects, block.effects(context)),
-                    {} as Record<string, (...payload: unknown[]) => void>,
-                ),
-        } as unknown as Composition<Blocks>;
     }
 
     /**

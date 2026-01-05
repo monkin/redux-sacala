@@ -10,10 +10,10 @@ describe("simple-composition", () => {
         .action("set", (state: string, text: string) => text)
         .build();
 
-    const rootBlock = ReduxBlock.compose({
-        counter: counterBlock,
-        message: messageBlock,
-    });
+    const rootBlock = ReduxBlock.composition("root")
+        .block("counter", counterBlock)
+        .block("message", messageBlock)
+        .build();
 
     it("should update composed state when actions are triggered", () => {
         const initialState = {
