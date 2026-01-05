@@ -1,6 +1,10 @@
-import { Action, Middleware, Reducer, UnknownAction } from "redux";
+import { Middleware, Reducer, UnknownAction } from "redux";
 
-export interface ReduxBlock<State, ActionType extends Action, Creators, Context> {
+type PayloadAction<Type extends string, Payload extends unknown[]> = Payload extends never[]
+    ? { type: Type }
+    : { type: Type; payload: Payload };
+
+export interface ReduxBlock<State, ActionType extends { type: string; payload?: unknown[] }, Creators, Context> {
     actions: Creators;
     reducer: Reducer<State, ActionType>;
     effects: Effects<Context>;
@@ -33,7 +37,7 @@ type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> 
     UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
 >;
 
-class Builder<Name extends string, State, Actions extends { [type: string]: unknown[] }, Context> {
+class Builder<Name extends string, State, Actions extends { name: string; payload: unknown[] }, Context> {
     private constructor(
         readonly name: Name,
         readonly initial: State,
@@ -41,7 +45,7 @@ class Builder<Name extends string, State, Actions extends { [type: string]: unkn
         private readonly effects: Effects<Context>[],
     ) {}
 
-    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
+    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
         return new Builder(name, initial, {}, []);
     }
 
@@ -49,8 +53,42 @@ class Builder<Name extends string, State, Actions extends { [type: string]: unkn
         action: Action,
         handler: (state: State, ...payload: Payload) => State,
     ) {
-        this.handlers[action] = handler as (state: State, ...payload: unknown[]) => State;
-        return this as Builder<Name, State, Actions & { [key in Action]: Payload }, Context>;
+        this.handlers[`${this.name}/${action}`] = handler as (state: State, ...payload: unknown[]) => State;
+        return this as Builder<Name, State, Actions | { name: Action; payload: Payload }, Context>;
+    }
+
+    build(): ReduxBlock<
+        State,
+        {
+            [K in Actions["name"]]: PayloadAction<`${Name}/${K}`, Extract<Actions, { name: K }>["payload"]>;
+        }[Actions["name"]],
+        {
+            [K in Actions["name"]]: (
+                ...payload: Extract<Actions, { name: K }>["payload"]
+            ) => PayloadAction<`${Name}/${K}`, Extract<Actions, { name: K }>["payload"]>;
+        },
+        Context
+    > {
+        const initialState = this.initial;
+        const blockName = this.name;
+        return {
+            actions: creator(this.name),
+            effects: this.effects.map(
+                (effect) => (context: Context) =>
+                    Object.fromEntries(
+                        Object.entries(effect(context)).map(([effectName, handler]) => [
+                            `${blockName}/${effectName}`,
+                            handler,
+                        ]),
+                    ),
+            ),
+            reducer: (state = initialState, action: UnknownAction) => {
+                const handler = this.handlers[action.type];
+                if (!handler) return state;
+                const payload = "payload" in action ? (action.payload as unknown[]) : undefined;
+                return payload ? handler(state, ...payload) : handler(state);
+            },
+        } as any;
     }
 }
 
@@ -69,7 +107,7 @@ export namespace ReduxBlock {
      * Create a block builder.
      * It's a starting point for creating a block.
      */
-    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
+    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, never, {}> {
         return Builder.init(name, initial);
     }
 
