@@ -131,6 +131,10 @@ class CompositionBuilder<
         this.creators = creator(name) as Creators;
     }
 
+    static init<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}> {
+        return new CompositionBuilder(name);
+    }
+
     block<Name extends string, Block extends ReduxBlock<any, any, any>>(
         name: Name,
         block: Block,
@@ -158,11 +162,27 @@ class CompositionBuilder<
     }
 
     build(): ReduxBlock<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }, Creators, Context> {
+        const reducers = Object.entries(this.blocks).map(([name, block]) => [name, block.reducer] as const);
         return {
             actions: this.creators,
             effects: (context: Context) =>
                 this.handlers.reduce((effects, handlers) => Object.assign(effects, handlers(context)), {}),
-            reducer: ReduxBlock.compose(this.blocks).reducer,
+            reducer: (state: any, action: UnknownAction) => {
+                let result = state;
+                let changed = false;
+                reducers.forEach(([name, reducer]) => {
+                    const original = result[name];
+                    const updated = reducer(original, action);
+                    if (updated !== original) {
+                        if (!changed) {
+                            changed = true;
+                            result = { ...result };
+                        }
+                        result[name] = updated;
+                    }
+                });
+                return result;
+            },
         } as any;
     }
 }
@@ -182,6 +202,13 @@ export namespace ReduxBlock {
      */
     export function builder<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}> {
         return BlockBuilder.init(name, initial);
+    }
+
+    /**
+     * Create a composition builder.
+     */
+    export function composition<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}> {
+        return CompositionBuilder.init(name);
     }
 
     /**
