@@ -52,7 +52,7 @@ type Composition<Blocks extends Record<string, ReduxBlock<any, any, any, any>>> 
     UnionToIntersection<ReduxBlock.TakeContext<Blocks[string]>>
 >;
 
-class Builder<Name extends string, State, Actions extends { [name: string]: unknown[] }, Context> {
+class BlockBuilder<Name extends string, State, Actions extends { [name: string]: unknown[] }, Context> {
     private constructor(
         readonly name: Name,
         readonly initial: State,
@@ -60,8 +60,8 @@ class Builder<Name extends string, State, Actions extends { [name: string]: unkn
         private readonly effects: Effects<Context>[],
     ) {}
 
-    static init<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
-        return new Builder(name, initial, {}, []);
+    static init<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}> {
+        return new BlockBuilder(name, initial, {}, []);
     }
 
     action<Action extends string, Payload extends unknown[] = []>(
@@ -69,7 +69,7 @@ class Builder<Name extends string, State, Actions extends { [name: string]: unkn
         handler: (state: State, ...payload: Payload) => State,
     ) {
         this.handlers[`${this.name}/${action}`] = handler as (state: State, ...payload: unknown[]) => State;
-        return this as unknown as Builder<Name, State, Actions & Record<Action, Payload>, Context>;
+        return this as unknown as BlockBuilder<Name, State, Actions & Record<Action, Payload>, Context>;
     }
 
     build(): ReduxBlock<
@@ -123,8 +123,8 @@ export namespace ReduxBlock {
      * Create a block builder.
      * It's a starting point for creating a block.
      */
-    export function builder<Name extends string, State>(name: Name, initial: State): Builder<Name, State, {}, {}> {
-        return Builder.init(name, initial);
+    export function builder<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}> {
+        return BlockBuilder.init(name, initial);
     }
 
     /**
