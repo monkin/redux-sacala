@@ -72,6 +72,11 @@ const rootBlock = ReduxBlock.composition("root")
         }
     }))
     .build();
+
+// Usage:
+// rootBlock.actions.counter.inc()
+// rootBlock.actions.counter.add(5)
+// rootBlock.actions.logAndIncrement()
 ```
 
 ### Minimal Redux Toolkit Example
