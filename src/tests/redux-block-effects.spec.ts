@@ -21,8 +21,8 @@ describe("ReduxBlock effects test", () => {
             .effects((ctx: Context) => ({
                 youAreLate: () => {
                     const time = ctx.now();
-                    // calls dispatch(set('som message with time')) also provided in context
-                    ctx.dispatch(ctx.set(`som message with ${time}`));
+                    // calls dispatch(set('some message with time')) also provided in context
+                    ctx.dispatch(ctx.set(`some message with ${time}`));
                 },
             }))
             .build();
@@ -48,7 +48,7 @@ describe("ReduxBlock effects test", () => {
 
         // Verify the state change
         expect(store.getState()).toEqual({
-            message: "som message with 2026-01-06 02:46",
+            message: "some message with 2026-01-06 02:46",
         });
     });
 });
