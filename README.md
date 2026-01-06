@@ -79,6 +79,41 @@ const rootBlock = ReduxBlock.composition("root")
 // rootBlock.actions.logAndIncrement()
 ```
 
+### Context Mapping
+
+You can change the context shape of a block using `ReduxBlock.mapContext`. This is useful when you want to adapt a block to a different environment or use a more convenient context structure.
+
+```typescript
+interface OldContext {
+    log: {
+        error: (msg: string) => void;
+        info: (msg: string) => void;
+    };
+}
+
+const block = ReduxBlock.builder("test", { message: "" })
+    .effects((ctx: OldContext) => ({
+        logError: (msg: string) => ctx.log.error(msg),
+    }))
+    .build();
+
+interface NewContext {
+    log: (level: "error" | "info", msg: string) => void;
+}
+
+const mappedBlock = ReduxBlock.mapContext(
+    block,
+    (ctx: NewContext): OldContext => ({
+        log: {
+            error: (msg) => ctx.log("error", msg),
+            info: (msg) => ctx.log("info", msg),
+        },
+    }),
+);
+
+// Now mappedBlock expects NewContext
+```
+
 ### Minimal Redux Toolkit Example
 
 ```typescript
