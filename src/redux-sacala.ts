@@ -271,4 +271,18 @@ export namespace ReduxBlock {
             next(action);
         };
     }
+
+    /**
+     * Create a new block with a different context shape.
+     */
+    export function mapContext<Block extends AnyBlock, NewContext>(
+        block: Block,
+        mapper: (context: NewContext) => TakeContext<Block>,
+    ): ReduxBlock<TakeState<Block>, TakeCreators<Block>, NewContext> {
+        return {
+            actions: block.actions,
+            reducer: block.reducer,
+            effects: (ctx) => block.effects(mapper(ctx)),
+        };
+    }
 }
