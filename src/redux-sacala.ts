@@ -13,7 +13,7 @@ export interface ReduxBlock<State, Creators, Context> {
     /**
      * Reducer that can be used directly in Redux store configuration.
      */
-    reducer: Reducer<State, UnknownAction>;
+    reducer: Reducer<State>;
     /**
      * Effects to be called on effects actions.
      * Use `ReduxBlock.middleware` to create middleware for effects processing.
@@ -154,9 +154,9 @@ class CompositionBuilder<
     Creators,
     Context,
 > {
-    private blocks: BlockMap = {} as BlockMap;
-    private handlers: Effects<Context>[] = [];
-    private creators: Creators;
+    private readonly blocks: BlockMap = {} as BlockMap;
+    private readonly handlers: Effects<Context>[] = [];
+    private readonly creators: Creators;
 
     private constructor(private name: Name) {
         this.creators = creator(name) as Creators;
