@@ -6,5 +6,6 @@ eslint.config.js
 .prettierrc
 .prettierignore
 .gitignore
+.github
 .idea
 package-lock.json
