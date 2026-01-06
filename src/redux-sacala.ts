@@ -25,6 +25,9 @@ type PayloadAction<Type extends string, Payload extends unknown[]> = Payload ext
     ? { type: Type }
     : { type: Type; payload: Payload };
 
+/**
+ * Checks if the given key exists directly on the provided object.
+ */
 function has<K extends string | symbol>(v: unknown, k: K): v is Record<K, unknown> {
     return typeof v === "object" && v !== null && Object.hasOwn(v, k);
 }
@@ -46,48 +49,83 @@ const creator = (scope: string) =>
         },
     ) as Record<string, (...payload: unknown[]) => UnknownAction>;
 
+/**
+ * Effects creator. It receives context with side effect APIs and returns non-pure handlers.
+ */
 type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
+
+/**
+ * Convert effects type to action creators.
+ */
 type EffectsToCreators<Name extends string, E extends Effects<any>> = {
     [K in keyof ReturnType<E> as `${Name}/${K extends string ? K : never}`]: (
         ...parameters: Parameters<ReturnType<E>[K]>
     ) => PayloadAction<`${Name}/${K extends string ? K : never}`, Parameters<ReturnType<E>[K]>>;
 };
 
-class BlockBuilder<Name extends string, State, Actions extends { [name: string]: unknown[] }, Context> {
+class BlockBuilder<
+    Name extends string,
+    State,
+    Creators extends Record<string, (...parameters: unknown[]) => PayloadAction<any, any>>,
+    Context,
+> {
     private constructor(
         readonly name: Name,
         readonly initial: State,
-        private readonly handlers: Record<string, (state: State, ...payload: unknown[]) => State>,
-        private readonly effects: Effects<Context>[],
+        /**
+         * Per-message action reducers for this block.
+         */
+        private readonly reducers: Record<string, (state: State, ...payload: unknown[]) => State>,
+        /**
+         * Effects handlers for this block.
+         */
+        private readonly handlers: Effects<Context>[],
     ) {}
 
     static init<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}> {
         return new BlockBuilder(name, initial, {}, []);
     }
 
+    /**
+     * Append an action handler to the block.
+     * Action is a pure function that takes the state + arguments and returns a new state.
+     */
     action<Action extends string, Payload extends unknown[] = []>(
         action: Action,
         handler: (state: State, ...payload: Payload) => State,
-    ) {
-        this.handlers[`${this.name}/${action}`] = handler as (state: State, ...payload: unknown[]) => State;
-        return this as unknown as BlockBuilder<Name, State, Actions & Record<Action, Payload>, Context>;
-    }
-
-    build(): ReduxBlock<
+    ): BlockBuilder<
+        Name,
         State,
-        {
-            [K in keyof Actions]: (
-                ...payload: Actions[K]
-            ) => PayloadAction<`${Name}/${K extends symbol ? never : K}`, Actions[K]>;
-        },
+        Creators & Record<Action, (...payload: Payload) => PayloadAction<`${Name}/${Action}`, Payload>>,
         Context
     > {
+        this.reducers[`${this.name}/${action}`] = handler as (state: State, ...payload: unknown[]) => State;
+        return this as any;
+    }
+
+    /**
+     * Append effect handlers to the block.
+     * Effects can call any side effects provided from the context.
+     */
+    effects<E extends Effects<unknown>>(
+        effects: E,
+    ): BlockBuilder<
+        Name,
+        State,
+        Creators & EffectsToCreators<Name, E>,
+        Context & (E extends Effects<infer C> ? C : never)
+    > {
+        this.handlers.push(effects);
+        return this as any;
+    }
+
+    build(): ReduxBlock<State, Creators, Context> {
         const initialState = this.initial;
         const blockName = this.name;
         return {
             actions: creator(this.name),
             effects: (context: Context) =>
-                this.effects.reduce(
+                this.handlers.reduce(
                     (acc, effect) =>
                         Object.assign(
                             acc,
@@ -101,7 +139,7 @@ class BlockBuilder<Name extends string, State, Actions extends { [name: string]:
                     {} as Record<string, (...payload: unknown[]) => void>,
                 ),
             reducer: (state = initialState, action: UnknownAction) => {
-                const handler = this.handlers[action.type];
+                const handler = this.reducers[action.type];
                 if (!handler) return state;
                 const payload = "payload" in action ? (action.payload as unknown[]) : undefined;
                 return payload && payload.length ? handler(state, ...payload) : handler(state);
