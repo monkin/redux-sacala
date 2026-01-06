@@ -107,7 +107,7 @@ class BlockBuilder<
      * Append effect handlers to the block.
      * Effects can call any side effects provided from the context.
      */
-    effects<E extends Effects<unknown>>(
+    effects<E extends Effects<any>>(
         effects: E,
     ): BlockBuilder<
         Name,
