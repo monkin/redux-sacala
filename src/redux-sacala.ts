@@ -26,7 +26,7 @@ type PayloadAction<Type extends string, Payload extends unknown[]> = Payload ext
     : { type: Type; payload: Payload };
 
 function has<K extends string | symbol>(v: unknown, k: K): v is Record<K, unknown> {
-    return typeof v === "object" && v !== null && k in v;
+    return typeof v === "object" && v !== null && Object.hasOwn(v, k);
 }
 
 const creator = (scope: string) =>
