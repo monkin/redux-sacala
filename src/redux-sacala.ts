@@ -52,7 +52,7 @@ const creator = (scope: string) =>
 /**
  * Effects creator. It receives context with side effect APIs and returns non-pure handlers.
  */
-type Effects<Context> = (context: Context) => Record<string, (...payload: unknown[]) => void>;
+type Effects<Context> = (context: Context) => Record<string, (...payload: any[]) => void>;
 
 /**
  * Convert effects type to action creators.
@@ -197,8 +197,18 @@ class CompositionBuilder<
         return {
             actions: this.creators,
             effects: (context: Context) => {
+                const blockName = this.name;
                 const result = this.handlers.reduce(
-                    (effects, handlers) => Object.assign(effects, handlers(context)),
+                    (acc, effect) =>
+                        Object.assign(
+                            acc,
+                            Object.fromEntries(
+                                Object.entries(effect(context)).map(([effectName, handler]) => [
+                                    `${blockName}/${effectName}`,
+                                    handler,
+                                ]),
+                            ),
+                        ),
                     {} as Record<string, (...payload: unknown[]) => void>,
                 );
                 Object.values(this.blocks).forEach((block) => Object.assign(result, block.effects(context)));
@@ -208,12 +218,12 @@ class CompositionBuilder<
                 let result = state;
                 let changed = false;
                 reducers.forEach(([name, reducer]) => {
-                    const original = result[name];
+                    const original = state?.[name];
                     const updated = reducer(original, action);
                     if (updated !== original) {
                         if (!changed) {
                             changed = true;
-                            result = { ...result };
+                            result = { ...state };
                         }
                         result[name] = updated;
                     }
