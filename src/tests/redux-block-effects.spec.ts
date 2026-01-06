@@ -12,7 +12,6 @@ describe("ReduxBlock effects test", () => {
         interface Context {
             now: () => string;
             dispatch: (action: UnknownAction) => void;
-            set: (message: string) => UnknownAction;
         }
 
         // Create the block
@@ -22,7 +21,7 @@ describe("ReduxBlock effects test", () => {
                 youAreLate: () => {
                     const time = ctx.now();
                     // calls dispatch(set('some message with time')) also provided in context
-                    ctx.dispatch(ctx.set(`some message with ${time}`));
+                    ctx.dispatch(lateBlock.actions.set(`some message with ${time}`));
                 },
             }))
             .build();
@@ -35,7 +34,6 @@ describe("ReduxBlock effects test", () => {
                 ReduxBlock.middleware(lateBlock, {
                     now: () => "2026-01-06 02:46",
                     dispatch: (action) => store.dispatch(action),
-                    set: (message: string) => lateBlock.actions.set(message),
                 }),
             ),
         );
