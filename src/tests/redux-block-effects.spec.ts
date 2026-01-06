@@ -1,19 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { applyMiddleware, legacy_createStore as createStore } from "redux";
+import { applyMiddleware, legacy_createStore as createStore, Store, UnknownAction } from "redux";
 import { ReduxBlock } from "../redux-sacala";
 
 describe("ReduxBlock effects test", () => {
     it("should satisfy all requirements from the issue description", () => {
+        interface State {
+            message: string;
+        }
+
         // Define the context interface as requested
         interface Context {
             now: () => string;
-            dispatch: (action: any) => void;
-            set: (message: string) => any;
+            dispatch: (action: UnknownAction) => void;
+            set: (message: string) => UnknownAction;
         }
 
         // Create the block
-        const lateBlock = ReduxBlock.builder("late", { message: "" })
-            .action("set", (state: { message: string }, message: string) => ({ ...state, message }))
+        const lateBlock = ReduxBlock.builder("late", { message: "" } as State)
+            .action("set", (state: State, message: string) => ({ ...state, message }))
             .effects((ctx: Context) => ({
                 youAreLate: () => {
                     const time = ctx.now();
@@ -25,14 +29,16 @@ describe("ReduxBlock effects test", () => {
 
         // Minimal redux store setup
         // We need a way to get the store's dispatch and actions into the context
-        let store: any;
-        const context: Context = {
-            now: () => "2026-01-06 02:46",
-            dispatch: (action) => store.dispatch(action),
-            set: (message: string) => lateBlock.actions.set(message),
-        };
-
-        store = createStore(lateBlock.reducer, applyMiddleware(ReduxBlock.middleware(lateBlock, context)));
+        const store: Store<State, UnknownAction> = createStore(
+            lateBlock.reducer,
+            applyMiddleware(
+                ReduxBlock.middleware(lateBlock, {
+                    now: () => "2026-01-06 02:46",
+                    dispatch: (action) => store.dispatch(action),
+                    set: (message: string) => lateBlock.actions.set(message),
+                }),
+            ),
+        );
 
         // Initial state
         expect(store.getState()).toEqual({ message: "" });

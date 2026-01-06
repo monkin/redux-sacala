@@ -58,7 +58,7 @@ type Effects<Context> = (context: Context) => Record<string, (...payload: unknow
  * Convert effects type to action creators.
  */
 type EffectsToCreators<Name extends string, E extends Effects<any>> = {
-    [K in keyof ReturnType<E> as `${Name}/${K extends string ? K : never}`]: (
+    [K in keyof ReturnType<E>]: (
         ...parameters: Parameters<ReturnType<E>[K]>
     ) => PayloadAction<`${Name}/${K extends string ? K : never}`, Parameters<ReturnType<E>[K]>>;
 };
