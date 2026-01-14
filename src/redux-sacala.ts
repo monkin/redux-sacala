@@ -1,10 +1,11 @@
 import { Middleware, Reducer, UnknownAction } from "redux";
+import { Selector } from "@reduxjs/toolkit";
 
 /**
  * Composable Redux block with state description, action creators, and effects handlers.
  * Use `ReduxBlock.builder` to start building a new block.
  */
-export interface ReduxBlock<State, Creators, Context> {
+export interface ReduxBlock<State, Creators, Context, Selectors> {
     /**
      * Action creators for this block.
      * When composed, action creators can form a folder tree structure.
@@ -19,6 +20,13 @@ export interface ReduxBlock<State, Creators, Context> {
      * Use `ReduxBlock.middleware` to create middleware for effects processing.
      */
     effects: Effects<Context>;
+    /**
+     * Creates a set of selectors.
+     *
+     * @param selectState A function that selects a slice of the state from the RootState.
+     * @return An object containing the derived selectors for the selected state.
+     */
+    selectors<RootState>(selectState: Selector<RootState, State>): Selectors;
 }
 
 type PayloadAction<Type extends string, Payload extends unknown[]> = Payload extends never[]
