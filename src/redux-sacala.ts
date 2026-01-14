@@ -120,7 +120,7 @@ class BlockBuilder<
     ): BlockBuilder<
         Name,
         State,
-        Creators & Record<Action, (...payload: Payload) => PayloadAction<`${Name}/${Action}`, Payload>>,
+        Creators & { [action in Action]: (...payload: Payload) => PayloadAction<`${Name}/${Action}`, Payload> },
         Context,
         Selectors
     > {
@@ -207,11 +207,14 @@ class CompositionBuilder<
         block: Block,
     ): CompositionBuilder<
         Name,
-        BlockMap & Record<Name, Block>,
-        Creators & Record<Name, ReduxBlock.TakeCreators<Block>>,
+        BlockMap & { [name in Name]: Block },
+        Creators & { [name in Name]: ReduxBlock.TakeCreators<Block> },
         Context & ReduxBlock.TakeContext<Block>,
         Selectors & {
-            [key in Name]: LiftSelectors<ReduxBlock.TakeSelectors<Block>, Record<Name, ReduxBlock.TakeState<Block>>>;
+            [key in Name]: LiftSelectors<
+                ReduxBlock.TakeSelectors<Block>,
+                { [name in Name]: ReduxBlock.TakeState<Block> }
+            >;
         }
     > {
         (this.blocks as Record<string, ReduxBlock<any, any, any, any>>)[name] = block;
