@@ -90,7 +90,7 @@ class BlockBuilder<
     State,
     Creators extends Record<string, (...parameters: unknown[]) => PayloadAction<any, any>>,
     Context,
-    Selectors extends Record<string, Selector<State, unknown>>,
+    Selectors extends Record<string, Selector<State>>,
 > {
     private constructor(
         readonly name: Name,
@@ -145,7 +145,7 @@ class BlockBuilder<
         return this as any;
     }
 
-    selectors<SelectorsToAdd extends Record<string, Selector<State, unknown>>>(
+    selectors<SelectorsToAdd extends Record<string, Selector<State>>>(
         selectors: SelectorsToAdd,
     ): BlockBuilder<Name, State, Creators, Context, Selectors & SelectorsToAdd> {
         Object.assign(this.selectors, selectors);
@@ -219,10 +219,7 @@ class CompositionBuilder<
     }
 
     selectors<
-        SelectorsToAdd extends Record<
-            string,
-            Selector<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }, unknown>
-        >,
+        SelectorsToAdd extends Record<string, Selector<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }>>,
     >(selectors: SelectorsToAdd): CompositionBuilder<Name, BlockMap, Creators, Context, Selectors & SelectorsToAdd> {
         Object.assign(this.select as any, selectors);
         return this as any;
