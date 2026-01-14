@@ -68,11 +68,11 @@ type EffectsToCreators<Name extends string, E extends Effects<any>> = {
     ) => PayloadAction<`${Name}/${K extends string ? K : never}`, Parameters<ReturnType<E>[K]>>;
 };
 
-type LiftSelectors<Tree, NewState> = {
-    [K in keyof Tree]: Tree[K] extends Selector<unknown, infer Value>
-        ? Selector<NewState, Value>
-        : LiftSelectors<Tree[K], NewState>;
-};
+type LiftSelectors<Tree, NewState> = Tree extends (...args: any) => infer Value
+    ? Selector<NewState, Value>
+    : {
+          [K in keyof Tree]: LiftSelectors<Tree[K], NewState>;
+      };
 
 function lift<Tree, RootState, State>(
     tree: Tree,
@@ -148,7 +148,7 @@ class BlockBuilder<
     selectors<SelectorsToAdd extends Record<string, Selector<State>>>(
         selectors: SelectorsToAdd,
     ): BlockBuilder<Name, State, Creators, Context, Selectors & SelectorsToAdd> {
-        Object.assign(this.selectors, selectors);
+        Object.assign(this.select as any, selectors);
         return this as any;
     }
 
@@ -210,7 +210,9 @@ class CompositionBuilder<
         BlockMap & Record<Name, Block>,
         Creators & Record<Name, ReduxBlock.TakeCreators<Block>>,
         Context & ReduxBlock.TakeContext<Block>,
-        Selectors & LiftSelectors<ReduxBlock.TakeSelectors<Block>, Record<Name, ReduxBlock.TakeState<Block>>>
+        Selectors & {
+            [key in Name]: LiftSelectors<ReduxBlock.TakeSelectors<Block>, Record<Name, ReduxBlock.TakeState<Block>>>;
+        }
     > {
         (this.blocks as Record<string, ReduxBlock<any, any, any, any>>)[name] = block;
         (this.creators as Record<string, unknown>)[name] = block.actions;
