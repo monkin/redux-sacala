@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMiddleware, legacy_createStore as createStore, Store, UnknownAction } from "redux";
+import { configureStore, Store, UnknownAction } from "@reduxjs/toolkit";
 import { ReduxBlock } from "../redux-sacala";
 
 describe("Composition of blocks with effects", () => {
@@ -48,14 +48,18 @@ describe("Composition of blocks with effects", () => {
         type RootState = ReduxBlock.TakeState<typeof rootBlock>;
 
         // Store setup
-        const store: Store<RootState, UnknownAction> = createStore(
-            rootBlock.reducer,
-            applyMiddleware(
-                ReduxBlock.middleware(rootBlock, {
-                    dispatch: (action: UnknownAction) => store.dispatch(action),
-                }),
-            ),
-        );
+        const store: Store<RootState, UnknownAction> = configureStore({
+            reducer: rootBlock.reducer,
+            middleware: (getDefaultMiddleware) =>
+                getDefaultMiddleware({
+                    serializableCheck: false,
+                    immutableCheck: false,
+                }).concat(
+                    ReduxBlock.middleware(rootBlock, {
+                        dispatch: (action: UnknownAction) => store.dispatch(action),
+                    }),
+                ),
+        });
 
         // Initial state check
         expect(store.getState()).toEqual({
@@ -101,14 +105,18 @@ describe("Composition of blocks with effects", () => {
 
         type RootState = ReduxBlock.TakeState<typeof rootBlock>;
 
-        const store: Store<RootState, UnknownAction> = createStore(
-            rootBlock.reducer,
-            applyMiddleware(
-                ReduxBlock.middleware(rootBlock, {
-                    dispatch: (action: UnknownAction) => store.dispatch(action),
-                }),
-            ),
-        );
+        const store: Store<RootState, UnknownAction> = configureStore({
+            reducer: rootBlock.reducer,
+            middleware: (getDefaultMiddleware) =>
+                getDefaultMiddleware({
+                    serializableCheck: false,
+                    immutableCheck: false,
+                }).concat(
+                    ReduxBlock.middleware(rootBlock, {
+                        dispatch: (action: UnknownAction) => store.dispatch(action),
+                    }),
+                ),
+        });
 
         store.dispatch(rootBlock.actions.rootEffect("from root"));
         expect(store.getState().child.value).toBe("from root");

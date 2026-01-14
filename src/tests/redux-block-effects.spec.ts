@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMiddleware, legacy_createStore as createStore, Store, UnknownAction } from "redux";
+import { configureStore, Store, UnknownAction } from "@reduxjs/toolkit";
 import { ReduxBlock } from "../redux-sacala";
 
 describe("ReduxBlock effects test", () => {
@@ -28,15 +28,19 @@ describe("ReduxBlock effects test", () => {
 
         // Minimal redux store setup
         // We need a way to get the store's dispatch and actions into the context
-        const store: Store<State, UnknownAction> = createStore(
-            lateBlock.reducer,
-            applyMiddleware(
-                ReduxBlock.middleware(lateBlock, {
-                    now: () => "2026-01-06 02:46",
-                    dispatch: (action) => store.dispatch(action),
-                }),
-            ),
-        );
+        const store: Store<State, UnknownAction> = configureStore({
+            reducer: lateBlock.reducer,
+            middleware: (getDefaultMiddleware) =>
+                getDefaultMiddleware({
+                    serializableCheck: false,
+                    immutableCheck: false,
+                }).concat(
+                    ReduxBlock.middleware(lateBlock, {
+                        now: () => "2026-01-06 02:46",
+                        dispatch: (action) => store.dispatch(action),
+                    }),
+                ),
+        });
 
         // Initial state
         expect(store.getState()).toEqual({ message: "" });

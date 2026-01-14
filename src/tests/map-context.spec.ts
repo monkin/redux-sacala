@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyMiddleware, legacy_createStore as createStore, Store, UnknownAction } from "redux";
 import { ReduxBlock } from "../redux-sacala";
+import { configureStore } from "@reduxjs/toolkit";
 
 describe("ReduxBlock.mapContext", () => {
     it("should map context as requested in the issue description", () => {
@@ -37,10 +37,14 @@ describe("ReduxBlock.mapContext", () => {
             log: logSpy,
         };
 
-        const store: Store<any, UnknownAction> = createStore(
-            mappedBlock.reducer,
-            applyMiddleware(ReduxBlock.middleware(mappedBlock, newContext)),
-        );
+        const store = configureStore({
+            reducer: mappedBlock.reducer,
+            middleware: (getDefaultMiddleware) =>
+                getDefaultMiddleware({
+                    serializableCheck: false,
+                    immutableCheck: false,
+                }).concat(ReduxBlock.middleware(mappedBlock, newContext)),
+        });
 
         store.dispatch(mappedBlock.actions.logError("test error"));
         expect(logSpy).toHaveBeenCalledWith("error", "test error");
@@ -78,10 +82,14 @@ describe("ReduxBlock.mapContext", () => {
         );
 
         const logSpy = vi.fn();
-        const store = createStore(
-            mappedRoot.reducer,
-            applyMiddleware(ReduxBlock.middleware(mappedRoot, { log: logSpy })),
-        );
+        const store = configureStore({
+            reducer: mappedRoot.reducer,
+            middleware: (getDefaultMiddleware) =>
+                getDefaultMiddleware({
+                    serializableCheck: false,
+                    immutableCheck: false,
+                }).concat(ReduxBlock.middleware(mappedRoot, { log: logSpy })),
+        });
 
         store.dispatch(mappedRoot.actions.child.run("hello"));
         expect(logSpy).toHaveBeenCalledWith("LOG: hello");
