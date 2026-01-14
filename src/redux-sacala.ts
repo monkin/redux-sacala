@@ -218,6 +218,16 @@ class CompositionBuilder<
         return this as any;
     }
 
+    selectors<
+        SelectorsToAdd extends Record<
+            string,
+            Selector<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }, unknown>
+        >,
+    >(selectors: SelectorsToAdd): CompositionBuilder<Name, BlockMap, Creators, Context, Selectors & SelectorsToAdd> {
+        Object.assign(this.select as any, selectors);
+        return this as any;
+    }
+
     effects<E extends Effects<any>>(
         effects: E,
     ): CompositionBuilder<
