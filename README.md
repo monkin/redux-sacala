@@ -7,6 +7,7 @@ A library for creating composable Redux blocks with state, actions, and effects.
 - **ReduxBlock**: A composable unit of Redux logic that encapsulates state, action creators, and effect handlers. It provides a structured way to define how state changes and how side effects are handled.
 - **Action**: A pure function that describes how the state changes in response to an event. In `redux-sacala`, actions are defined using `.action()` and they also serve as action creators.
 - **Effect**: A non-pure handler that can perform side effects such as asynchronous API calls, logging, or dispatching other actions. Effects are defined using `.effects()` and have access to a context object providing necessary dependencies.
+- **Selector**: A pure function that takes the state and returns a derived value. Selectors are defined using `.selectors()` and can be accessed via `.select`. For memoization, it is recommended to use `createSelector` from `@reduxjs/toolkit`. In compositions, selectors from child blocks are automatically "lifted" and available under the block's name.
 
 ## Examples
 
@@ -77,6 +78,58 @@ const rootBlock = ReduxBlock.composition("root")
 // rootBlock.actions.counter.inc()
 // rootBlock.actions.counter.add(5)
 // rootBlock.actions.logAndIncrement()
+```
+
+### Selectors
+
+Selectors allow you to extract and derive data from the state. They are defined using `.selectors()` and are available on the `.select` property of the built block.
+
+```typescript
+const counterBlock = ReduxBlock.builder("counter", { count: 0 })
+    .action("inc", (state) => ({ count: state.count + 1 }))
+    .selectors({
+        count: (state) => state.count,
+        doubleCount: (state) => state.count * 2,
+    })
+    .build();
+
+// Usage:
+// counterBlock.select.count({ count: 5 }) -> 5
+// counterBlock.select.doubleCount({ count: 5 }) -> 10
+```
+
+For complex or expensive derivations, it is recommended to use `createSelector` from `@reduxjs/toolkit` (or `reselect`) to enable memoization:
+
+```typescript
+import { createSelector } from '@reduxjs/toolkit';
+
+const counterBlock = ReduxBlock.builder("counter", { count: 0 })
+    .selectors({
+        count: (state) => state.count,
+        // Memoized selector using createSelector
+        tripleCount: createSelector(
+            [(state: { count: number }) => state.count],
+            (count) => count * 3
+        ),
+    })
+    .build();
+```
+
+When blocks are composed, their selectors are automatically "lifted" to work with the composition's state.
+
+```typescript
+const rootBlock = ReduxBlock.composition("root")
+    .block("counter", counterBlock)
+    .selectors({
+        isPositive: (state) => state.counter.count > 0,
+    })
+    .build();
+
+// Lifted selector from counterBlock:
+// rootBlock.select.counter.count({ counter: { count: 5 } }) -> 5
+
+// Composition selector:
+// rootBlock.select.isPositive({ counter: { count: 5 } }) -> true
 ```
 
 ### Context Mapping
