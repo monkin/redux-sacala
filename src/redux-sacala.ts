@@ -68,6 +68,23 @@ type EffectsToCreators<Name extends string, E extends Effects<any>> = {
     ) => PayloadAction<`${Name}/${K extends string ? K : never}`, Parameters<ReturnType<E>[K]>>;
 };
 
+type LiftSelectors<Tree, NewState> = {
+    [K in keyof Tree]: Tree[K] extends Selector<unknown, infer Value>
+        ? Selector<NewState, Value>
+        : LiftSelectors<Tree[K], NewState>;
+};
+
+function lift<Tree, RootState, State>(
+    tree: Tree,
+    selectState: (root: RootState) => State,
+): LiftSelectors<Tree, RootState> {
+    if (typeof tree === "function") {
+        return ((state: RootState) => tree(selectState(state))) as any;
+    } else {
+        return Object.fromEntries(Object.entries(tree as any).map(([k, v]) => [k, lift(v, selectState)])) as any;
+    }
+}
+
 class BlockBuilder<
     Name extends string,
     State,
@@ -167,33 +184,37 @@ class BlockBuilder<
 
 class CompositionBuilder<
     Name extends string,
-    BlockMap extends Record<string, ReduxBlock<any, any, any>>,
+    BlockMap extends Record<string, ReduxBlock<any, any, any, any>>,
     Creators,
     Context,
+    Selectors,
 > {
     private readonly blocks: BlockMap = {} as BlockMap;
     private readonly handlers: Effects<Context>[] = [];
     private readonly creators: Creators;
+    private readonly select: Selectors = {} as Selectors;
 
     private constructor(private name: Name) {
         this.creators = creator(name) as Creators;
     }
 
-    static init<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}> {
+    static init<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}, {}> {
         return new CompositionBuilder(name);
     }
 
-    block<Name extends string, Block extends ReduxBlock<any, any, any>>(
+    block<Name extends string, Block extends ReduxBlock<any, any, any, any>>(
         name: Name,
         block: Block,
     ): CompositionBuilder<
         Name,
         BlockMap & Record<Name, Block>,
         Creators & Record<Name, ReduxBlock.TakeCreators<Block>>,
-        Context & ReduxBlock.TakeContext<Block>
+        Context & ReduxBlock.TakeContext<Block>,
+        Selectors & LiftSelectors<ReduxBlock.TakeSelectors<Block>, Record<Name, ReduxBlock.TakeState<Block>>>
     > {
-        (this.blocks as Record<string, ReduxBlock<any, any, any>>)[name] = block;
+        (this.blocks as Record<string, ReduxBlock<any, any, any, any>>)[name] = block;
         (this.creators as Record<string, unknown>)[name] = block.actions;
+        (this.select as Record<string, unknown>)[name] = lift(block.select, (rootState: any) => rootState[name]);
         return this as any;
     }
 
@@ -203,13 +224,14 @@ class CompositionBuilder<
         Name,
         BlockMap,
         Creators & EffectsToCreators<Name, E>,
-        Context & (E extends Effects<infer ExtraContext> ? ExtraContext : never)
+        Context & (E extends Effects<infer ExtraContext> ? ExtraContext : never),
+        Selectors
     > {
         (this.handlers as (Effects<Context> | E)[]).push(effects);
         return this as any;
     }
 
-    build(): ReduxBlock<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }, Creators, Context> {
+    build(): ReduxBlock<{ [K in keyof BlockMap]: ReduxBlock.TakeState<BlockMap[K]> }, Creators, Context, Selectors> {
         const reducers = Object.entries(this.blocks).map(([name, block]) => [name, block.reducer] as const);
         return {
             actions: this.creators,
@@ -247,31 +269,38 @@ class CompositionBuilder<
                 });
                 return result;
             },
+            select: this.select,
         } as any;
     }
 }
 
 export namespace ReduxBlock {
-    type AnyBlock = ReduxBlock<any, any, any>;
+    type AnyBlock = ReduxBlock<any, any, any, any>;
 
-    export type TakeState<Block extends AnyBlock> = Block extends ReduxBlock<infer State, any, any> ? State : never;
+    export type TakeState<Block extends AnyBlock> =
+        Block extends ReduxBlock<infer State, any, any, any> ? State : never;
     export type TakeCreators<Block extends AnyBlock> =
-        Block extends ReduxBlock<any, infer Creators, any> ? Creators : never;
+        Block extends ReduxBlock<any, infer Creators, any, any> ? Creators : never;
     export type TakeContext<Block extends AnyBlock> =
-        Block extends ReduxBlock<any, any, infer Context> ? Context : never;
+        Block extends ReduxBlock<any, any, infer Context, any> ? Context : never;
+    export type TakeSelectors<Block extends AnyBlock> =
+        Block extends ReduxBlock<any, any, any, infer Selectors> ? Selectors : never;
 
     /**
      * Create a block builder.
      * It's a starting point for creating a block.
      */
-    export function builder<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}> {
+    export function builder<Name extends string, State>(
+        name: Name,
+        initial: State,
+    ): BlockBuilder<Name, State, {}, {}, {}> {
         return BlockBuilder.init(name, initial);
     }
 
     /**
      * Create a composition builder.
      */
-    export function composition<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}> {
+    export function composition<Name extends string>(name: Name): CompositionBuilder<Name, {}, {}, {}, {}> {
         return CompositionBuilder.init(name);
     }
 
@@ -295,11 +324,12 @@ export namespace ReduxBlock {
     export function mapContext<Block extends AnyBlock, NewContext>(
         block: Block,
         mapper: (context: NewContext) => TakeContext<Block>,
-    ): ReduxBlock<TakeState<Block>, TakeCreators<Block>, NewContext> {
+    ): ReduxBlock<TakeState<Block>, TakeCreators<Block>, NewContext, TakeSelectors<Block>> {
         return {
             actions: block.actions,
             reducer: block.reducer,
             effects: (ctx) => block.effects(mapper(ctx)),
+            select: block.select,
         };
     }
 }
