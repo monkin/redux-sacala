@@ -13,7 +13,7 @@ export default defineConfig({
         outDir: "build",
         sourcemap: true,
         rollupOptions: {
-            external: ["redux"],
+            external: ["redux", "@reduxjs/toolkit"],
         },
     },
     plugins: [dts({ rollupTypes: true })],
