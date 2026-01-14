@@ -21,12 +21,9 @@ export interface ReduxBlock<State, Creators, Context, Selectors> {
      */
     effects: Effects<Context>;
     /**
-     * Creates a set of selectors.
-     *
-     * @param selectState A function that selects a slice of the state from the RootState.
-     * @return An object containing the derived selectors for the selected state.
+     * Selectors for derived state properties.
      */
-    selectors<RootState>(selectState: Selector<RootState, State>): Selectors;
+    select: Selectors;
 }
 
 type PayloadAction<Type extends string, Payload extends unknown[]> = Payload extends never[]
@@ -76,6 +73,7 @@ class BlockBuilder<
     State,
     Creators extends Record<string, (...parameters: unknown[]) => PayloadAction<any, any>>,
     Context,
+    Selectors extends Record<string, Selector<State, unknown>>,
 > {
     private constructor(
         readonly name: Name,
@@ -88,10 +86,11 @@ class BlockBuilder<
          * Effects handlers for this block.
          */
         private readonly handlers: Effects<Context>[],
+        private readonly select: Selectors,
     ) {}
 
-    static init<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}> {
-        return new BlockBuilder(name, initial, {}, []);
+    static init<Name extends string, State>(name: Name, initial: State): BlockBuilder<Name, State, {}, {}, {}> {
+        return new BlockBuilder(name, initial, {}, [], {});
     }
 
     /**
@@ -105,7 +104,8 @@ class BlockBuilder<
         Name,
         State,
         Creators & Record<Action, (...payload: Payload) => PayloadAction<`${Name}/${Action}`, Payload>>,
-        Context
+        Context,
+        Selectors
     > {
         this.reducers[`${this.name}/${action}`] = handler as (state: State, ...payload: unknown[]) => State;
         return this as any;
@@ -121,13 +121,21 @@ class BlockBuilder<
         Name,
         State,
         Creators & EffectsToCreators<Name, E>,
-        Context & (E extends Effects<infer C> ? C : never)
+        Context & (E extends Effects<infer C> ? C : never),
+        Selectors
     > {
         this.handlers.push(effects);
         return this as any;
     }
 
-    build(): ReduxBlock<State, Creators, Context> {
+    selectors<SelectorsToAdd extends Record<string, Selector<State, unknown>>>(
+        selectors: SelectorsToAdd,
+    ): BlockBuilder<Name, State, Creators, Context, Selectors & SelectorsToAdd> {
+        Object.assign(this.selectors, selectors);
+        return this as any;
+    }
+
+    build(): ReduxBlock<State, Creators, Context, Selectors> {
         const initialState = this.initial;
         const blockName = this.name;
         return {
@@ -152,6 +160,7 @@ class BlockBuilder<
                 const payload = "payload" in action ? (action.payload as unknown[]) : undefined;
                 return payload && payload.length ? handler(state, ...payload) : handler(state);
             },
+            select: this.select,
         } as any;
     }
 }
