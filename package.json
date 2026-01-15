@@ -2,6 +2,14 @@
     "name": "redux-sacala",
     "version": "0.3.3",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/monkin/redux-sacala.git"
+    },
+    "bugs": {
+        "url": "https://github.com/monkin/redux-sacala/issues"
+    },
+    "homepage": "https://github.com/monkin/redux-sacala#readme",
     "type": "module",
     "author": {
         "name": "Andrey Monkin",
