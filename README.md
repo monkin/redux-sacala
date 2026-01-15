@@ -185,3 +185,7 @@ const store = configureStore({
         ),
 });
 ```
+
+## License
+
+MIT
