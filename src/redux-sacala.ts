@@ -344,4 +344,24 @@ export namespace ReduxBlock {
             select: block.select,
         };
     }
+
+    /**
+     * Maps the selectors of a given block to a new state using a provided selector function.
+     */
+    export function mapSelectors<Block extends AnyBlock, NewState>(
+        block: Block,
+        selectState: Selector<NewState, TakeState<Block>>,
+    ): ReduxBlock<
+        TakeState<Block>,
+        TakeCreators<Block>,
+        TakeContext<Block>,
+        LiftSelectors<TakeSelectors<Block>, NewState>
+    > {
+        return {
+            actions: block.actions,
+            reducer: block.reducer,
+            effects: block.effects,
+            select: lift(block.select, selectState),
+        } as any;
+    }
 }
