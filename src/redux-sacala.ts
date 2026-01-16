@@ -331,7 +331,7 @@ export namespace ReduxBlock {
     }
 
     /**
-     * Create a new block with a different context shape.
+     * Create a new block with a different context (dependencies) shape.
      */
     export function mapContext<Block extends AnyBlock, NewContext>(
         block: Block,
