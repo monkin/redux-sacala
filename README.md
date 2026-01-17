@@ -1,5 +1,7 @@
 # Redux Sacala
 
+[![CI](https://github.com/monkin/redux-sacala/actions/workflows/test.yml/badge.svg)](https://github.com/monkin/redux-sacala/actions/workflows/test.yml)
+
 A library for creating composable Redux blocks with state, actions, and effects.
 
 ## Terms Definition
