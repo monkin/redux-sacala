@@ -287,6 +287,8 @@ class CompositionBuilder<
 }
 
 export namespace ReduxBlock {
+    type FindFunction<T> = T extends Function ? T : FindFunction<T[keyof T]>;
+    type TakeFirst<T> = T extends [infer First, ...any] ? First : never;
     type AnyBlock = ReduxBlock<any, any, any, any>;
 
     export type TakeState<Block extends AnyBlock> =
@@ -297,6 +299,7 @@ export namespace ReduxBlock {
         Block extends ReduxBlock<any, any, infer Context, any> ? Context : never;
     export type TakeSelectors<Block extends AnyBlock> =
         Block extends ReduxBlock<any, any, any, infer Selectors> ? Selectors : never;
+    export type TakeSelectorsState<Block extends AnyBlock> = TakeFirst<Parameters<FindFunction<TakeSelectors<Block>>>>;
 
     /**
      * Create a block builder.
@@ -350,7 +353,7 @@ export namespace ReduxBlock {
      */
     export function mapSelectors<Block extends AnyBlock, NewState>(
         block: Block,
-        selectState: (state: NewState) => TakeState<Block>,
+        selectState: (state: NewState) => TakeSelectorsState<Block>,
     ): ReduxBlock<
         TakeState<Block>,
         TakeCreators<Block>,

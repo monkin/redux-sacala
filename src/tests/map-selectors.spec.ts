@@ -49,6 +49,9 @@ describe("ReduxBlock.mapSelectors", () => {
     it("should preserve other block properties", () => {
         const counterBlock = ReduxBlock.builder("counter", { count: 0 })
             .action("increment", (state) => ({ ...state, count: state.count + 1 }))
+            .selectors({
+                count: (state) => state.count,
+            })
             .build();
 
         const mappedBlock = ReduxBlock.mapSelectors(counterBlock, (state: any) => state.somePath);
@@ -98,7 +101,7 @@ describe("ReduxBlock.mapSelectors", () => {
             inner: { count: number };
         }
         interface RootState {
-            outer: MidState;
+            outer: { inner: { count: number } };
         }
 
         const midBlock = ReduxBlock.mapSelectors(counterBlock, (state: MidState) => state.inner);
