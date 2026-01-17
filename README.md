@@ -167,6 +167,39 @@ const mappedBlock = ReduxBlock.mapContext(
 // Now mappedBlock expects NewContext
 ```
 
+### Selector Mapping
+
+You can adapt a block's selectors to work with a different state shape using `ReduxBlock.mapSelectors`. This is useful when you want to embed a block as part of a larger state structure or reuse a block with different state organization.
+
+```typescript
+const counterBlock = ReduxBlock.builder("counter", { count: 0 })
+    .action("inc", (state) => ({ count: state.count + 1 }))
+    .selectors({
+        count: (state) => state.count,
+        doubleCount: (state) => state.count * 2,
+    })
+    .build();
+
+// Original selector expects { count: number }
+// counterBlock.select.count({ count: 5 }) -> 5
+
+// Map selectors to work with a different state shape
+interface AppState {
+    myCounter: { count: number };
+}
+
+const mappedBlock = ReduxBlock.mapSelectors(
+    counterBlock,
+    (state: AppState) => state.myCounter
+);
+
+// Now selectors expect AppState
+// mappedBlock.select.count({ myCounter: { count: 5 } }) -> 5
+// mappedBlock.select.doubleCount({ myCounter: { count: 5 } }) -> 10
+```
+
+Note: In most cases, compositions handle selector lifting automatically. Use `mapSelectors` when you need explicit control over how selectors access state, such as when integrating with existing Redux stores or creating reusable blocks.
+
 ### Minimal Redux Toolkit Example
 
 ```typescript
