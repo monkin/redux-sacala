@@ -25,22 +25,22 @@ describe("ReduxBlock.mapSelectors", () => {
     });
 
     it("should work with nested selectors", () => {
-        const counterBlock = ReduxBlock.builder("counter", { count: 0 })
+        const innerBlock = ReduxBlock.builder("inner", { count: 0 })
             .selectors({
-                main: {
-                    count: (state: { count: number }) => state.count,
-                },
+                count: (state: { count: number }) => state.count,
             })
             .build();
 
+        const counterBlock = ReduxBlock.composition("counter").block("main", innerBlock).build();
+
         interface RootState {
-            counterA: { count: number };
+            counterA: { main: { count: number } };
         }
 
         const mappedBlock = ReduxBlock.mapSelectors(counterBlock, (state: RootState) => state.counterA);
 
         const rootState: RootState = {
-            counterA: { count: 10 },
+            counterA: { main: { count: 10 } },
         };
 
         expect(mappedBlock.select.main.count(rootState)).toBe(10);
@@ -98,15 +98,15 @@ describe("ReduxBlock.mapSelectors", () => {
             inner: { count: number };
         }
         interface RootState {
-            mid: MidState;
+            outer: MidState;
         }
 
         const midBlock = ReduxBlock.mapSelectors(counterBlock, (state: MidState) => state.inner);
 
-        const rootBlock = ReduxBlock.mapSelectors(midBlock, (state: RootState) => state.mid);
+        const rootBlock = ReduxBlock.mapSelectors(midBlock, (state: RootState) => state.outer);
 
         const rootState: RootState = {
-            mid: {
+            outer: {
                 inner: { count: 42 },
             },
         };

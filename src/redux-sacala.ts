@@ -350,7 +350,7 @@ export namespace ReduxBlock {
      */
     export function mapSelectors<Block extends AnyBlock, NewState>(
         block: Block,
-        selectState: Selector<NewState, TakeState<Block>>,
+        selectState: (state: NewState) => TakeState<Block>,
     ): ReduxBlock<
         TakeState<Block>,
         TakeCreators<Block>,
