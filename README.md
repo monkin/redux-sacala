@@ -221,6 +221,54 @@ const store = configureStore({
 });
 ```
 
+### Dependency Injection with [di-sacala](https://github.com/monkin/di-sacala)
+
+For larger applications, it is highly recommended to use `di-sacala` to manage and provide dependencies to your effects. It provides a clean way to define and resolve dependencies with full type safety.
+
+```typescript
+import { configureStore } from '@reduxjs/toolkit';
+import { ReduxBlock } from "redux-sacala";
+import { DiContainer, DiService } from "di-sacala";
+
+// 1. Define your services
+class ApiService implements DiService<"api"> {
+    name = "api" as const;
+    async fetchUser(id: string) {
+        return { id, name: "User " + id };
+    }
+}
+
+class LoggerService implements DiService<"logger"> {
+    name = "logger" as const;
+    log(msg: string) {
+        console.log(`[LOG]: ${msg}`);
+    }
+}
+
+class DispatcherService implements DiService<"dispatch"> {
+    name = "dispatch" as const;
+    constructor() {
+    }
+    dispatch(action: Action) {
+        // Dispatch action using Redux store
+    }
+}
+
+// 2. Create and configure the container
+const container = new DiContainer()
+    .inject(ApiService)
+    .inject(LoggerService)
+    .inject(DispatcherService);
+
+const store = configureStore({
+    reducer: rootBlock.reducer,
+    middleware: (getDefaultMiddleware) => 
+        getDefaultMiddleware().concat(
+            ReduxBlock.middleware(rootBlock, container)
+        ),
+});
+```
+
 ## License
 
 MIT
