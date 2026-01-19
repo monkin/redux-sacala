@@ -1,6 +1,6 @@
 {
     "name": "redux-sacala",
-    "version": "0.3.6",
+    "version": "0.3.7",
     "description": "A library for creating composable Redux blocks with state, actions, and effects",
     "license": "MIT",
     "repository": {
